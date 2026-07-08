@@ -22,9 +22,9 @@
 
 ## 4. DeepSeek Provider 适配层
 
-- [ ] 4.1 实现 `src/services/api/openai/adapter.ts`：内部 Message ↔ OpenAI messages/tools 双向转换
-- [ ] 4.2 实现 `src/services/api/openai/stream.ts`：流式解析 text delta 与 tool_calls 分片组装
-- [ ] 4.3 实现 `src/services/api/client.ts`：`callModel` async generator 入口，读取环境变量
+- [x] 4.1 实现 `src/services/api/openai/adapter.ts`：内部 Message ↔ OpenAI messages/tools 双向转换
+- [x] 4.2 实现 `src/services/api/openai/stream.ts`：流式解析 text delta 与 tool_calls 分片组装
+- [x] 4.3 实现 `src/services/api/client.ts`：`callModel` async generator 入口，读取环境变量
 - [x] 4.4 实现 `src/query/deps.ts`：`QueryDeps`、`productionDeps()`（含 `QUERY_MOCK` + `services/api/mock.ts`）
 
 ## 5. ReAct 核心循环
