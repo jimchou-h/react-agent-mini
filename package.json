@@ -1,0 +1,19 @@
+{
+  "name": "react-agent-mini",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/entrypoints/cli.ts",
+    "dev:mock": "bun run src/entrypoints/cli.ts --mock",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.2"
+  }
+}
