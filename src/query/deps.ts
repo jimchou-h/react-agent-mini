@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { CallModel } from './types.js'
+import { callModel } from '../services/api/client.js'
 import { mockEchoCallModel } from '../services/api/mock.js'
 
 /**
@@ -25,7 +26,7 @@ export type QueryDeps = {
  * 生产环境默认依赖
  *
  * - QUERY_MOCK=1 或 CLI --mock：使用 mockEchoCallModel，无需 API Key
- * - 否则：callModel 抛错，提示实现 issue #2
+ * - 否则：绑定真实 DeepSeek callModel
  */
 export function productionDeps(): QueryDeps {
   if (process.env.QUERY_MOCK === '1') {
@@ -36,18 +37,7 @@ export function productionDeps(): QueryDeps {
   }
 
   return {
-    callModel: notImplementedCallModel,
+    callModel,
     uuid: randomUUID,
   }
-}
-
-/**
- * 真实 Provider 未实现时的占位 callModel
- *
- * 立即抛错，避免静默失败；引导用户使用 dev:mock 或配置 API Key。
- */
-async function* notImplementedCallModel(): AsyncGenerator<never> {
-  throw new Error(
-    '真实模型 Provider 尚未实现（见 issue #2）。请使用 npx bun run dev:mock 或设置 QUERY_MOCK=1。',
-  )
 }
