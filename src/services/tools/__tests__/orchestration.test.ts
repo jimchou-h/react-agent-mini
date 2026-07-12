@@ -65,4 +65,37 @@ describe('runTools', () => {
       expect(block.is_error).toBe(true)
     }
   })
+
+  test('returns error tool_result when Read path is outside cwd', async () => {
+    const tools = getTools()
+    const context = createMinimalToolContext(tools)
+    const blocks: ToolUseBlock[] = [
+      {
+        type: 'tool_use',
+        id: 'toolu_read_escape',
+        name: 'Read',
+        input: { path: '../../outside.txt' },
+      },
+    ]
+    const parent = createAssistantMessage([
+      {
+        type: 'tool_use',
+        id: 'toolu_read_escape',
+        name: 'Read',
+        input: blocks[0]!.input,
+      },
+    ])
+
+    const updates = []
+    for await (const update of runTools(blocks, parent, context)) {
+      updates.push(update)
+    }
+
+    const block = updates[0]?.message?.content.find(b => b.type === 'tool_result')
+    expect(block?.type).toBe('tool_result')
+    if (block?.type === 'tool_result') {
+      expect(block.is_error).toBe(true)
+      expect(block.content).toContain('拒绝访问')
+    }
+  })
 })
