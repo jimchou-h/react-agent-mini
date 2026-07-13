@@ -42,9 +42,9 @@
 
 ## 7. 文档
 
-- [ ] 7.1 编写 `docs/architecture.md`（中文）：ReAct 流程图、模块职责、扩展路线图
-- [ ] 7.2 创建 `CONTEXT-MAP.md` 及 `src/query/CONTEXT.md`、`src/tools/CONTEXT.md`、`src/services/api/CONTEXT.md`（术语表）
-- [ ] 7.3 更新 `README.md`：安装、环境变量、运行示例
+- [x] 7.1 编写 `docs/architecture.md`（中文）：ReAct 流程图、模块职责、扩展路线图
+- [x] 7.2 创建 `CONTEXT-MAP.md` 及 `src/query/CONTEXT.md`、`src/tools/CONTEXT.md`、`src/services/api/CONTEXT.md`（术语表）
+- [x] 7.3 更新 `README.md`：安装、环境变量、运行示例
 
 ## 8. 验收（Smoke Test）
 
