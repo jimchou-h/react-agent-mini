@@ -14,59 +14,16 @@ import { query } from '../query.js'
 import { getTools } from '../tools/index.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createUserMessage } from '../utils/messages.js'
-
-/** 解析参数时需忽略的 CLI 标志位 */
-const CLI_FLAGS = new Set(['-p', '--mock', '-m'])
-
-/**
- * 从 process.argv 解析用户问题文本
- *
- * 支持两种传参方式：
- * - `bun run dev -- "问题"` → argv 含 `--` 后的内容
- * - `bun run dev:mock "问题"` → 直接 positional 参数（无 `--`）
- *
- * @param argv - process.argv.slice(2)
- * @returns 用户问题字符串；pipe 模式（-p）返回 null
- */
-function parseUserPrompt(argv: string[]): string | null {
-  if (argv.includes('-p')) {
-    return null // pipe：由 readStdin() 提供
-  }
-
-  const dashIndex = argv.indexOf('--')
-  if (dashIndex >= 0 && argv[dashIndex + 1]) {
-    return argv
-      .slice(dashIndex + 1)
-      .filter(a => !CLI_FLAGS.has(a))
-      .join(' ')
-      .trim()
-  }
-
-  const positional = argv.filter(a => !a.startsWith('-') && a !== '--')
-  if (positional.length > 0) {
-    return positional.join(' ').trim()
-  }
-
-  return null
-}
-
-/**
- * 判断是否启用 mock 模型（无需 API Key）
- *
- * 任一条件满足即可：环境变量 QUERY_MOCK=1、--mock、-m
- */
-function isMockMode(argv: string[]): boolean {
-  return (
-    process.env.QUERY_MOCK === '1' ||
-    argv.includes('--mock') ||
-    argv.includes('-m')
-  )
-}
+import { extractToolUseBlocks } from '../utils/messages.js'
+import {
+  formatToolResultStatus,
+  formatToolStartStatus,
+  isMockMode,
+  parseUserPrompt,
+} from './cliHelpers.js'
 
 /**
  * 从标准输入读取用户问题（pipe 模式）
- *
- * @returns 去除首尾空白后的 stdin 全文
  */
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = []
@@ -80,17 +37,13 @@ async function readStdin(): Promise<string> {
 function printUsage(): void {
   console.error('用法:')
   console.error('  npx bun run dev:mock -- "你的问题"     （Windows 推荐，无需 API Key）')
-  console.error('  npx bun run dev -- "你的问题"          （需 OPENAI_API_KEY，见 issue #2）')
+  console.error('  npx bun run dev -- "你的问题"          （需 OPENAI_API_KEY）')
+  console.error('  echo "你的问题" | npx bun run dev -p   （pipe 模式）')
   console.error('')
   console.error('PowerShell 环境变量写法:')
   console.error('  $env:QUERY_MOCK="1"; npx bun run dev -- "你的问题"')
 }
 
-/**
- * CLI 主函数
- *
- * 流程：解析 prompt → 校验环境 → query() 循环 → 流式/工具状态输出
- */
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
 
@@ -128,6 +81,10 @@ async function main(): Promise<void> {
         process.stdout.write(item.text)
         printedTextThisTurn = true
       } else if (item.type === 'assistant') {
+        for (const block of extractToolUseBlocks(item)) {
+          console.error(formatToolStartStatus(block))
+        }
+
         if (!printedTextThisTurn) {
           const text = item.content
             .filter(b => b.type === 'text')
@@ -139,13 +96,10 @@ async function main(): Promise<void> {
       } else if (item.type === 'user') {
         const toolBlock = item.content.find(b => b.type === 'tool_result')
         if (toolBlock?.type === 'tool_result') {
-          const preview =
-            toolBlock.content.length > 60
-              ? `${toolBlock.content.slice(0, 60)}…`
-              : toolBlock.content
-          console.error(
-            `[工具] tool_result: ${toolBlock.is_error ? '错误' : '成功'} — ${preview}`,
-          )
+          const resultLine = formatToolResultStatus(toolBlock)
+          if (resultLine) {
+            console.error(resultLine)
+          }
         }
       }
     }
