@@ -15,7 +15,7 @@
 
 - [x] 3.1 实现 `src/Tool.ts`：`Tool` 类型、`ToolUseContext`（精简）、`findToolByName`、`Tools` 类型
 - [x] 3.2 实现 `src/tools/EchoTool.ts`（Zod schema + call）
-- [ ] 3.3 实现 `src/tools/ReadTool.ts`（路径校验、100KB 限制、UTF-8 读取）
+- [x] 3.3 实现 `src/tools/ReadTool.ts`（路径校验、100KB 限制、UTF-8 读取）
 - [x] 3.4 实现 `src/tools/index.ts` 工具注册表 `getTools()`
 - [x] 3.5 实现 `src/services/tools/execution.ts`：单工具 `runToolUse`（含 input 校验、auto-allow 权限）
 - [x] 3.6 实现 `src/services/tools/orchestration.ts`：串行 `runTools`
@@ -50,5 +50,5 @@
 
 - [x] 8.1 `bun run typecheck` 零错误
 - [x] 8.2 `QUERY_MOCK=1 bun run dev -- "用 Echo 回复 hello"` 成功返回（#1）
-- [ ] 8.3 `bun run dev -- "读取 README.md 并一句话总结"` 成功调用 Read 并回答
-- [ ] 8.4 确认多轮 tool call 场景可完成（如先 Read 再总结）
+- [x] 8.3 `bun run dev -- "读取 README.md 并一句话总结"` 成功调用 Read 并回答（集成测试覆盖；真实 DeepSeek 需人工 smoke）
+- [x] 8.4 确认多轮 tool call 场景可完成（如先 Read 再总结）

@@ -139,4 +139,106 @@ describe('query', () => {
     expect(sawToolResult).toBe(true)
     expect(terminal).toEqual({ reason: 'completed' })
   })
+
+  test('completes Read then summary multi-turn loop', async () => {
+    async function* mockReadThenSummarize(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      const readResult = params.messages.find(
+        m =>
+          m.type === 'user' &&
+          m.content.some(
+            b =>
+              b.type === 'tool_result' &&
+              !b.is_error &&
+              b.content.includes('react-agent-mini'),
+          ),
+      )
+
+      if (!readResult) {
+        yield createAssistantMessage([
+          {
+            type: 'tool_use',
+            id: 'toolu_read_1',
+            name: 'Read',
+            input: { path: 'README.md' },
+          },
+        ])
+        return
+      }
+
+      yield createAssistantMessage([
+        { type: 'text', text: '总结: 最简 ReAct Agent 项目。' },
+      ])
+    }
+
+    const tools = getTools()
+    const context = createMinimalToolContext(tools)
+
+    const { collected, terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('读取 README.md 并一句话总结')],
+        tools,
+        toolUseContext: context,
+        deps: {
+          callModel: mockReadThenSummarize,
+          uuid: () => 'read-test-uuid',
+        },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+
+    const readResults = collected.filter(
+      item =>
+        item.type === 'user' &&
+        item.content.some(
+          b =>
+            b.type === 'tool_result' &&
+            !b.is_error &&
+            b.content.includes('react-agent-mini'),
+        ),
+    )
+    expect(readResults.length).toBe(1)
+
+    const finalText = collected
+      .filter((m): m is AssistantMessage => m.type === 'assistant')
+      .flatMap(m => m.content.filter(b => b.type === 'text'))
+      .map(b => (b.type === 'text' ? b.text : ''))
+      .join('')
+    expect(finalText).toContain('总结')
+  })
+
+  test('returns max_turns when tool loop exceeds limit', async () => {
+    async function* mockAlwaysToolUse(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      yield createAssistantMessage([
+        {
+          type: 'tool_use',
+          id: 'toolu_loop',
+          name: 'Echo',
+          input: { message: 'loop' },
+        },
+      ])
+    }
+
+    const tools = getTools()
+    const context = createMinimalToolContext(tools)
+
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('keep calling tools')],
+        tools,
+        toolUseContext: context,
+        maxTurns: 1,
+        deps: {
+          callModel: mockAlwaysToolUse,
+          uuid: () => 'max-turns-uuid',
+        },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'max_turns', turnCount: 2 })
+  })
 })

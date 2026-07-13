@@ -103,18 +103,29 @@ describe('messagesToOpenAI', () => {
 })
 
 describe('toolsToOpenAI', () => {
-  test('includes Echo tool definition with JSON schema', () => {
+  test('includes Echo and Read tool definitions with JSON schema', () => {
     const tools = toolsToOpenAI(getTools())
 
-    expect(tools).toHaveLength(1)
-    expect(tools[0]?.type).toBe('function')
-    expect(tools[0]?.function.name).toBe('Echo')
-    expect(tools[0]?.function.parameters).toMatchObject({
+    expect(tools).toHaveLength(2)
+    const names = tools.map(t => t.function.name).sort()
+    expect(names).toEqual(['Echo', 'Read'])
+
+    const echo = tools.find(t => t.function.name === 'Echo')
+    expect(echo?.function.parameters).toMatchObject({
       type: 'object',
       properties: {
         message: { type: 'string' },
       },
       required: ['message'],
+    })
+
+    const read = tools.find(t => t.function.name === 'Read')
+    expect(read?.function.parameters).toMatchObject({
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+      },
+      required: ['path'],
     })
   })
 })
