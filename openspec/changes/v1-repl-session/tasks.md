@@ -5,8 +5,8 @@
 
 ## 2. 输出复用
 
-- [ ] 2.1 从 `cli.ts` 抽出 `consumeQueryStream()`（流式 stdout/stderr）
-- [ ] 2.2 headless 模式改用 `consumeQueryStream`，行为与 v0 一致
+- [x] 2.1 从 `cli.ts` 抽出 `consumeQueryStream()`（流式 stdout/stderr）
+- [x] 2.2 headless 模式改用 `consumeQueryStream`，行为与 v0 一致
 
 ## 3. REPL
 

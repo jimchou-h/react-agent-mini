@@ -5,7 +5,7 @@
  * 职责：
  * 1. 解析命令行参数 / stdin（pipe 模式）
  * 2. 检查 mock 模式或 API Key
- * 3. 调用 query() 并消费 yield 的事件，输出到终端
+ * 3. 调用 query() 并经 consumeQueryStream 输出到终端
  *
  * Windows 推荐：npx bun run dev:mock -- "你的问题"
  */
@@ -14,13 +14,8 @@ import { query } from '../query.js'
 import { getTools } from '../tools/index.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createUserMessage } from '../utils/messages.js'
-import { extractToolUseBlocks } from '../utils/messages.js'
-import {
-  formatToolResultStatus,
-  formatToolStartStatus,
-  isMockMode,
-  parseUserPrompt,
-} from './cliHelpers.js'
+import { consumeQueryStream } from './consumeQueryStream.js'
+import { isMockMode, parseUserPrompt } from './cliHelpers.js'
 
 /**
  * 从标准输入读取用户问题（pipe 模式）
@@ -36,7 +31,9 @@ async function readStdin(): Promise<string> {
 /** 参数错误时打印用法说明到 stderr */
 function printUsage(): void {
   console.error('用法:')
-  console.error('  npx bun run dev:mock -- "你的问题"     （Windows 推荐，无需 API Key）')
+  console.error(
+    '  npx bun run dev:mock -- "你的问题"     （Windows 推荐，无需 API Key）',
+  )
   console.error('  npx bun run dev -- "你的问题"          （需 OPENAI_API_KEY）')
   console.error('  echo "你的问题" | npx bun run dev -p   （pipe 模式）')
   console.error('')
@@ -72,38 +69,10 @@ async function main(): Promise<void> {
   const context = createMinimalToolContext(tools)
   const messages = [createUserMessage(prompt)]
 
-  /** 本 turn 是否已通过 text_delta 流式输出过文本（避免与 assistant 全文重复打印） */
-  let printedTextThisTurn = false
-
   try {
-    for await (const item of query({ messages, tools, toolUseContext: context })) {
-      if (item.type === 'text_delta') {
-        process.stdout.write(item.text)
-        printedTextThisTurn = true
-      } else if (item.type === 'assistant') {
-        for (const block of extractToolUseBlocks(item)) {
-          console.error(formatToolStartStatus(block))
-        }
-
-        if (!printedTextThisTurn) {
-          const text = item.content
-            .filter(b => b.type === 'text')
-            .map(b => (b.type === 'text' ? b.text : ''))
-            .join('')
-          if (text) process.stdout.write(text)
-        }
-        printedTextThisTurn = false
-      } else if (item.type === 'user') {
-        const toolBlock = item.content.find(b => b.type === 'tool_result')
-        if (toolBlock?.type === 'tool_result') {
-          const resultLine = formatToolResultStatus(toolBlock)
-          if (resultLine) {
-            console.error(resultLine)
-          }
-        }
-      }
-    }
-    process.stdout.write('\n')
+    await consumeQueryStream(
+      query({ messages, tools, toolUseContext: context }),
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`错误: ${msg}`)
