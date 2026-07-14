@@ -30,6 +30,27 @@ export function parseUserPrompt(argv: string[]): string | null {
   return null
 }
 
+/** CLI 启动模式：交互 REPL / 单次 headless / pipe */
+export type LaunchMode = 'repl' | 'headless' | 'pipe'
+
+/**
+ * 根据 argv 决定启动路径
+ *
+ * - `-p` → pipe（stdin 读问题）
+ * - 有问题文本 → headless
+ * - 否则 → REPL
+ */
+export function resolveLaunchMode(argv: string[]): LaunchMode {
+  if (argv.includes('-p')) {
+    return 'pipe'
+  }
+  const prompt = parseUserPrompt(argv)
+  if (prompt) {
+    return 'headless'
+  }
+  return 'repl'
+}
+
 /** 是否启用 mock 模型（QUERY_MOCK=1、--mock、-m） */
 export function isMockMode(argv: string[]): boolean {
   return (
