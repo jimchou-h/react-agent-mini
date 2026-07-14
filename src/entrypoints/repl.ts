@@ -6,22 +6,54 @@ export function isSkippableReplLine(line: string): boolean {
   return line.trim().length === 0
 }
 
+export type SlashCommand =
+  | { type: 'exit' }
+  | { type: 'clear' }
+  | { type: 'help' }
+
+const HELP_TEXT = `可用命令:
+  /exit, /quit  — 退出 REPL
+  /clear        — 清空会话历史
+  /help         — 显示本帮助`
+
+/**
+ * 解析本地 slash 命令；普通输入或未知 `/xxx` 返回 null（未知不送 slash，也不当模型输入——见 session）
+ *
+ * 未知 `/foo`：按 AC「slash 输入不作为模型 user」——打印提示，不 runTurn。
+ */
+export function parseSlashCommand(line: string): SlashCommand | null {
+  const trimmed = line.trim()
+  if (trimmed === '/exit' || trimmed === '/quit') {
+    return { type: 'exit' }
+  }
+  if (trimmed === '/clear') {
+    return { type: 'clear' }
+  }
+  if (trimmed === '/help') {
+    return { type: 'help' }
+  }
+  return null
+}
+
+export function isSlashLine(line: string): boolean {
+  return line.trim().startsWith('/')
+}
+
 export type ReplSessionDeps = {
   engine: QueryEngine
-  /** 用户输入行流（测试可注入；生产由 readline 提供） */
   lines: AsyncIterable<string>
   consume?: typeof consumeQueryStream
   onAfterTurn?: () => void
+  /** 测试可捕获帮助/确认输出 */
+  print?: (text: string) => void
 }
 
 /**
  * REPL 会话核心循环（无 readline 依赖，便于单测）
- *
- * 空行跳过；每行调用 `engine.runTurn` + consumeQueryStream。
- * Slash 命令由后续 issue 接入。
  */
 export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
   const consume = deps.consume ?? consumeQueryStream
+  const print = deps.print ?? ((text: string) => console.log(text))
 
   for await (const line of deps.lines) {
     if (isSkippableReplLine(line)) {
@@ -30,6 +62,28 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
     }
 
     const trimmed = line.trim()
+    const slash = parseSlashCommand(trimmed)
+
+    if (slash?.type === 'exit') {
+      break
+    }
+    if (slash?.type === 'clear') {
+      deps.engine.clear()
+      print('会话已清空')
+      deps.onAfterTurn?.()
+      continue
+    }
+    if (slash?.type === 'help') {
+      print(HELP_TEXT)
+      deps.onAfterTurn?.()
+      continue
+    }
+    if (isSlashLine(trimmed)) {
+      print('未知命令。输入 /help 查看可用命令。')
+      deps.onAfterTurn?.()
+      continue
+    }
+
     try {
       await consume(deps.engine.runTurn(trimmed))
     } catch (err) {

@@ -11,7 +11,7 @@
 ## 3. REPL
 
 - [x] 3.1 实现 `src/entrypoints/repl.ts`：readline 循环 + `QueryEngine`
-- [ ] 3.2 实现 slash 命令：`/exit`、`/clear`、`/help`
+- [x] 3.2 实现 slash 命令：`/exit`、`/clear`、`/help`
 - [x] 3.3 `cli.ts` 路由：无参数 → REPL；有参数 / `-p` → headless
 
 ## 4. 脚本与文档
