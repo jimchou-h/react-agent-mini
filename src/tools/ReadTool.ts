@@ -8,6 +8,18 @@ export const MAX_READ_BYTES = 100 * 1024
 
 const readInputSchema = z.object({
   path: z.string().describe('要读取的文件路径（相对 cwd 或绝对路径）'),
+  offset: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('起始行号（1-based），与 limit 一起分段读取'),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('读取行数，与 offset 一起分段读取'),
 })
 
 /**
@@ -67,6 +79,22 @@ export const ReadTool: Tool<typeof readInputSchema> = {
     }
 
     const content = await readFile(filePath, 'utf-8')
+
+    if (args.offset !== undefined || args.limit !== undefined) {
+      const lines = content.split(/\r?\n/)
+      if (content.endsWith('\n') || content.endsWith('\r\n')) {
+        lines.pop()
+      }
+      const start = (args.offset ?? 1) - 1
+      const end =
+        args.limit !== undefined ? start + args.limit : lines.length
+      const slice = lines.slice(start, end)
+      const numbered = slice
+        .map((line, i) => `${start + i + 1}|${line}`)
+        .join('\n')
+      return { data: numbered }
+    }
+
     return { data: content }
   },
 

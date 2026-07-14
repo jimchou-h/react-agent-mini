@@ -130,6 +130,11 @@ function zodObjectToJsonSchema(schema: z.ZodType): Record<string, unknown> {
         type: 'string',
         ...(inner.description ? { description: inner.description } : {}),
       }
+    } else if (inner instanceof z.ZodNumber) {
+      properties[key] = {
+        type: 'number',
+        ...(inner.description ? { description: inner.description } : {}),
+      }
     }
 
     if (!(field instanceof z.ZodOptional)) {

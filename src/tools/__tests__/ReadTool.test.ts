@@ -52,6 +52,17 @@ describe('ReadTool', () => {
     expect(result.data).toBe('hello read')
   })
 
+  test('reads a line range with offset and limit and line number prefixes', async () => {
+    await writeFile('lines.txt', 'one\ntwo\nthree\nfour\n', 'utf-8')
+
+    const result = await ReadTool.call(
+      { path: 'lines.txt', offset: 2, limit: 2 },
+      { tools: [ReadTool] },
+    )
+
+    expect(result.data).toBe('2|two\n3|three')
+  })
+
   test('throws when file does not exist', async () => {
     await expect(
       ReadTool.call({ path: 'missing.txt' }, { tools: [ReadTool] }),

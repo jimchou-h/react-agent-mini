@@ -124,6 +124,8 @@ describe('toolsToOpenAI', () => {
       type: 'object',
       properties: {
         path: { type: 'string' },
+        offset: { type: 'number' },
+        limit: { type: 'number' },
       },
       required: ['path'],
     })
