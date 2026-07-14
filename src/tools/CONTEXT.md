@@ -22,12 +22,14 @@
 | **autoAllowCanUseTool** | v0 权限策略：恒 `{ behavior: 'allow' }` |
 | **findToolByName** | 按 `tool_use.name` 查找工具定义 |
 
-## 内置工具（v0）
+## 内置工具（v1）
 
 | 工具 | 只读 | 说明 |
 |------|------|------|
 | **Echo** | 是 | 原样返回 `message`，验证 ReAct 闭环 |
-| **Read** | 是 | 读取 cwd 内 UTF-8 文件；单文件 ≤100KB |
+| **Read** | 是 | 读取 cwd 内 UTF-8 文件；单文件 ≤100KB；可选 `offset`/`limit` 分段 |
+| **Grep** | 是 | cwd 内正则搜内容；`head_limit` 默认 50 |
+| **Glob** | 是 | cwd 内 glob 列文件；最多 100 条 |
 
 ### Read 专用术语
 
@@ -35,6 +37,14 @@
 |------|------|
 | **MAX_READ_BYTES** | 100 × 1024，超出返回工具错误 |
 | **resolvePathUnderCwd** | 解析路径并拒绝逃出 `cwd` 的穿越访问 |
+| **offset / limit** | 1-based 起始行与行数；输出 `LINE|content` |
+
+### Grep / Glob 术语
+
+| 术语 | 说明 |
+|------|------|
+| **DEFAULT_GREP_HEAD_LIMIT** | 默认 50 条匹配行 |
+| **MAX_GLOB_RESULTS** | 最多返回 100 个路径 |
 
 ## 注册
 

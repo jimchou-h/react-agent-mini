@@ -1,3 +1,9 @@
+## Purpose
+
+定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob 等只读工具的对外行为。
+
+## Requirements
+
 ### Requirement: Tool 契约
 
 系统 SHALL 定义 `Tool` 类型，包含 `name`、`inputSchema`（Zod）、`call()`、`isReadOnly()`、`isConcurrencySafe()` 等方法，签名对齐 claude-code-best 的精简子集。
@@ -38,6 +44,11 @@
 
 - **WHEN** 模型调用 `Read` 且 `path` 指向 `cwd` 下存在的普通文件
 - **THEN** `tool_result` 包含该文件的 UTF-8 文本内容
+
+#### Scenario: 分段读取
+
+- **WHEN** 模型调用 `Read` 且提供 `offset`（起始行，1-based）与 `limit`（行数）
+- **THEN** `tool_result` 仅包含指定行范围，每行带行号前缀
 
 #### Scenario: 文件不存在
 
