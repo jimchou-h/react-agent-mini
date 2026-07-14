@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run src/entrypoints/cli.ts",
     "dev:mock": "bun run src/entrypoints/cli.ts --mock",
+    "dev:repl": "bun run src/entrypoints/cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

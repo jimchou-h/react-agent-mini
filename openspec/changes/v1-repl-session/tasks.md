@@ -16,8 +16,8 @@
 
 ## 4. 脚本与文档
 
-- [ ] 4.1 更新 `package.json`（可选 `dev:repl` 别名）与 `README.md` REPL 用法
-- [ ] 4.2 更新 `docs/architecture.md` L1 会话层、`src/query/CONTEXT.md` QueryEngine 术语
+- [x] 4.1 更新 `package.json`（可选 `dev:repl` 别名）与 `README.md` REPL 用法
+- [x] 4.2 更新 `docs/architecture.md` L1 会话层、`src/query/CONTEXT.md` QueryEngine 术语
 
 ## 5. 验收
 

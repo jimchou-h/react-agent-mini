@@ -28,17 +28,38 @@ $env:OPENAI_BASE_URL = "https://api.deepseek.com"
 
 ## 快速开始
 
-### Mock 模式（无需 API Key）
+### 交互 REPL（默认）
 
-验证 Echo 工具闭环：
+无参数启动进入多轮会话（提示符 `> `）：
 
 ```powershell
-# Windows PowerShell
+npx bun run dev:mock
+# 或
+npx bun run dev:repl
+```
+
+```bash
+bun run dev:mock
+bun run dev:repl
+```
+
+REPL 内可用：
+
+| 命令 | 说明 |
+|------|------|
+| `/help` | 显示帮助 |
+| `/clear` | 清空会话历史 |
+| `/exit` 或 `/quit` | 退出 |
+
+> 若曾设置 `$env:QUERY_MOCK="1"`，请先 `Remove-Item Env:QUERY_MOCK`，否则会一直走仅 Echo 的 mock。
+
+### Mock 单次问答（无需 API Key）
+
+```powershell
 npx bun run dev:mock -- "用 Echo 回复 hello"
 ```
 
 ```bash
-# macOS / Linux
 bun run dev:mock -- "用 Echo 回复 hello"
 ```
 
@@ -50,7 +71,7 @@ bun run dev -- "读取 README.md 并一句话总结"
 
 ### Pipe 模式
 
-从 stdin 读入**一条**问题（答完退出，非交互 REPL）：
+从 stdin 读入**一条**问题（答完退出，非 REPL）：
 
 ```bash
 echo "用 Echo 回复 hello" | bun run dev:mock -p
@@ -60,14 +81,15 @@ echo "用 Echo 回复 hello" | bun run dev:mock -p
 "用 Echo 回复 hello" | npx bun run dev:mock -p
 ```
 
-> 带 `-p` 时不要用 `dev:mock -- "问题" -p` 混用；`-p` 会忽略 argv 中的问题并等待 stdin。
+> 带 `-p` 时不要与 argv 问题混用；`-p` 会忽略 argv 中的问题并等待 stdin。
 
 ## 脚本
 
 | 命令 | 说明 |
 |------|------|
-| `bun run dev` | 运行 CLI（真实模型） |
-| `bun run dev:mock` | 运行 CLI（`QUERY_MOCK=1`） |
+| `bun run dev` | CLI：无参数 = REPL；有参数 = headless |
+| `bun run dev:mock` | 同上，强制 mock |
+| `bun run dev:repl` | 显式进入 REPL |
 | `bun test` | 单元 / 集成测试 |
 | `bun run typecheck` | TypeScript 严格检查 |
 
@@ -79,14 +101,13 @@ echo "用 Echo 回复 hello" | bun run dev:mock -p
 ## 架构速览
 
 ```
-用户问题 → cli.ts → query() 循环
-              ↓
-         callModel (DeepSeek / mock)
-              ↓
-         tool_use? → runTools (Echo / Read)
-              ↓
-         流式 text_delta → stdout
-         工具状态 → stderr
+用户 → cli.ts → QueryEngine.runTurn / query()
+                      ↓
+                 callModel (DeepSeek / mock)
+                      ↓
+                 tool_use? → runTools
+                      ↓
+                 text → stdout；工具状态 → stderr
 ```
 
-v0 为 **headless 单次问答**，不含 claude-code 式交互 REPL。
+支持 **交互 REPL（多轮）** 与 **headless / pipe（单次）**。

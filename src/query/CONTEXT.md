@@ -31,6 +31,14 @@ ReAct 主循环与 `query()` 公共 API。源码入口：`src/query.ts`、`src/q
 | **productionDeps** | 默认依赖：`QUERY_MOCK=1` → mock；否则真实 `callModel` |
 | **deps 覆盖** | `query({ ..., deps })` 用于单元测试，避免 `mock.module` 全局污染 |
 
+
+## L1 会话层
+
+| 术语 | 英文 | 说明 |
+|------|------|------|
+| **QueryEngine** | QueryEngine | 跨多轮用户输入累积 messages；runTurn / clear |
+| **runTurn** | runTurn | 追加 user → query() → 合并 yield 的消息 |
+
 ## 与 claude-code 对齐点
 
 - `async function* query()` 签名与 yield 语义
@@ -45,3 +53,4 @@ ReAct 主循环与 `query()` 公共 API。源码入口：`src/query.ts`、`src/q
 | `src/query.ts` | `query()`、`queryLoop()` |
 | `src/query/deps.ts` | `QueryDeps`、`productionDeps()` |
 | `src/query/types.ts` | `QueryParams`、`Terminal`、`CallModel` |
+| `src/QueryEngine.ts` | L1 QueryEngine 会话封装 |

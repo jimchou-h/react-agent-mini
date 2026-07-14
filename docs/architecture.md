@@ -6,15 +6,15 @@
 
 | 目标 | 说明 |
 |------|------|
-| 可运行 | headless CLI：单次问答或 pipe 模式 |
+| 可运行 | headless CLI + 交互 REPL |
 | 可学习 | 核心循环 ~150 行，中文注释 |
 | 可扩展 | 模块边界与 claude-code 同构，换 Provider / 加工具不改 `query.ts` |
 
-**v0 刻意不做**：Ink REPL、权限弹窗、MCP、compact、并发工具、多 Provider。
+**刻意不做**：Ink UI、权限弹窗、会话持久化、MCP、compact、并发工具。
 
 ## ReAct 主循环
 
-一次用户问题在 `query()` 内部可能经历多轮「模型 ↔ 工具」；CLI 只调用一次 `query()`，答完即退出。
+一次 `query()` 调用处理**一轮用户输入**（内部可多轮 tool）。多轮用户对话由 L1 `QueryEngine` 持有 `messages[]` 并反复 `runTurn`。
 
 ```mermaid
 flowchart TD
@@ -41,24 +41,28 @@ flowchart TD
 
 ```
 src/
-├── entrypoints/cli.ts       # headless 入口：参数 / pipe / 流式输出
-├── entrypoints/cliHelpers.ts
-├── query.ts                 # ReAct 主循环（public API）
+├── entrypoints/
+│   ├── cli.ts                 # 路由：REPL / headless / pipe
+│   ├── repl.ts                # readline REPL + slash
+│   ├── consumeQueryStream.ts  # 共用流式 stdout/stderr
+│   └── cliHelpers.ts
+├── QueryEngine.ts             # L1 会话：messages 累积、runTurn、clear
+├── query.ts                   # L2 ReAct 主循环（public API）
 ├── query/
-│   ├── deps.ts              # QueryDeps 依赖注入
-│   └── types.ts             # QueryParams、Terminal、CallModel
-├── Tool.ts                  # Tool 契约、ToolUseContext
-├── tools/                   # Echo、Read + getTools()
+│   ├── deps.ts                # QueryDeps 依赖注入
+│   └── types.ts               # QueryParams、Terminal、CallModel
+├── Tool.ts                    # Tool 契约、ToolUseContext
+├── tools/                     # Echo、Read、Grep、Glob + getTools()
 ├── services/
 │   ├── api/
-│   │   ├── client.ts        # callModel 入口
-│   │   ├── mock.ts          # QUERY_MOCK 假模型
-│   │   └── openai/          # DeepSeek 适配层
+│   │   ├── client.ts          # callModel 入口
+│   │   ├── mock.ts            # QUERY_MOCK 假模型
+│   │   └── openai/            # DeepSeek 适配层
 │   └── tools/
-│       ├── execution.ts     # 单工具 runToolUse
-│       └── orchestration.ts # 串行 runTools
-├── types/message.ts         # User/Assistant/StreamEvent
-└── utils/messages.ts        # 消息构造与规范化
+│       ├── execution.ts       # 单工具 runToolUse
+│       └── orchestration.ts   # 串行 runTools
+├── types/message.ts
+└── utils/messages.ts
 ```
 
 ### 数据流（单次 tool 轮）
@@ -85,9 +89,12 @@ Mock 模式：`productionDeps()` 绑定 `mockEchoCallModel`，可验证 Echo 闭
 
 | 模式 | 示例 | 行为 |
 |------|------|------|
-| 参数问答 | `bun run dev:mock -- "用 Echo 回复 hello"` | 问题来自 argv |
-| Pipe | `echo "问题" \| bun run dev -p` | 问题来自 stdin（**不要**同时传 argv 问题） |
-| 真实模型 | `bun run dev -- "读取 README.md 并总结"` | 需 `OPENAI_API_KEY` |
+| REPL | `bun run dev` / `dev:mock` / `dev:repl` | 无问题参数 → `> ` 多轮对话 |
+| 参数问答 | `bun run dev:mock -- "用 Echo 回复 hello"` | headless 单次 |
+| Pipe | `echo "问题" \| bun run dev -p` | stdin 单次 |
+| 真实模型 | `bun run dev -- "读取 README.md"` | 需 `OPENAI_API_KEY` |
+
+Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
 
 输出约定：
 
@@ -105,16 +112,16 @@ Mock 模式：`productionDeps()` 绑定 `mockEchoCallModel`，可验证 Echo 闭
 | `Tool.ts` | `src/Tool.ts` | 完整 `canUseTool`、MCP 工具 |
 | `tools/*` | `packages/builtin-tools/` | Bash、Write、Grep、Agent… |
 | `services/api/openai/` | `src/services/api/openai/` | thinking mode、多模型映射 |
-| `entrypoints/cli.ts` | `src/main.tsx` + `REPL.tsx` | Ink 交互 REPL |
+| `QueryEngine.ts` | `src/QueryEngine.ts` | compact、file history、attribution |
+| `entrypoints/cli.ts` + `repl.ts` | `src/main.tsx` + `REPL.tsx` | Ink UI、权限弹窗 |
 | `services/tools/orchestration.ts` | 同名 | `partitionToolCalls` 并发分区 |
 
 建议扩展顺序：
 
-1. **更多只读工具**（Grep、Glob）— 仍串行、auto-allow
-2. **权限流水线** — 替换 `autoAllowCanUseTool`
-3. **REPL** — 维护 `messages[]` 多轮用户输入
-4. **compact** — 长对话截断
-5. **MCP / Agent 子任务** — 对齐 claude-code 工具注册表
+1. **权限流水线** — 替换 `autoAllowCanUseTool`
+2. **compact** — 长对话截断
+3. **Ink REPL** — 替换 readline
+4. **MCP / Agent 子任务** — 对齐 claude-code 工具注册表
 
 ## 测试策略
 
