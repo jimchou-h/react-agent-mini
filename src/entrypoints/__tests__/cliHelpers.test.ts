@@ -74,6 +74,17 @@ describe('formatToolStartStatus', () => {
       }),
     ).toBe('[工具] Grep: foo')
   })
+
+  test('formats Glob tool status', () => {
+    expect(
+      formatToolStartStatus({
+        type: 'tool_use',
+        id: 'toolu_4',
+        name: 'Glob',
+        input: { pattern: '**/*.ts' },
+      }),
+    ).toBe('[工具] Glob: **/*.ts')
+  })
 })
 describe('formatToolResultStatus', () => {
   test('returns null for success', () => {

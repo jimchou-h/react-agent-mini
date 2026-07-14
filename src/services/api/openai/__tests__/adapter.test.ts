@@ -103,12 +103,12 @@ describe('messagesToOpenAI', () => {
 })
 
 describe('toolsToOpenAI', () => {
-  test('includes Echo, Read and Grep tool definitions with JSON schema', () => {
+  test('includes Echo, Read, Grep and Glob tool definitions with JSON schema', () => {
     const tools = toolsToOpenAI(getTools())
 
-    expect(tools).toHaveLength(3)
+    expect(tools).toHaveLength(4)
     const names = tools.map(t => t.function.name).sort()
-    expect(names).toEqual(['Echo', 'Grep', 'Read'])
+    expect(names).toEqual(['Echo', 'Glob', 'Grep', 'Read'])
 
     const echo = tools.find(t => t.function.name === 'Echo')
     expect(echo?.function.parameters).toMatchObject({
@@ -130,6 +130,15 @@ describe('toolsToOpenAI', () => {
 
     const grep = tools.find(t => t.function.name === 'Grep')
     expect(grep?.function.parameters).toMatchObject({
+      type: 'object',
+      properties: {
+        pattern: { type: 'string' },
+      },
+      required: ['pattern'],
+    })
+
+    const glob = tools.find(t => t.function.name === 'Glob')
+    expect(glob?.function.parameters).toMatchObject({
       type: 'object',
       properties: {
         pattern: { type: 'string' },
