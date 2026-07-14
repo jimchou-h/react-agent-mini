@@ -1,5 +1,6 @@
 import type { Tools } from '../Tool.js'
 import { EchoTool } from './EchoTool.js'
+import { GrepTool } from './GrepTool.js'
 import { ReadTool } from './ReadTool.js'
 
 /**
@@ -9,5 +10,5 @@ import { ReadTool } from './ReadTool.js'
  * 对齐 claude-code src/tools.ts 的组装方式，v0 为静态列表。
  */
 export function getTools(): Tools {
-  return [EchoTool, ReadTool]
+  return [EchoTool, ReadTool, GrepTool]
 }

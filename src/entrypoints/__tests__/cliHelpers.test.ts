@@ -63,8 +63,18 @@ describe('formatToolStartStatus', () => {
       }),
     ).toBe('[工具] Echo: hello')
   })
-})
 
+  test('formats Grep tool status', () => {
+    expect(
+      formatToolStartStatus({
+        type: 'tool_use',
+        id: 'toolu_3',
+        name: 'Grep',
+        input: { pattern: 'foo' },
+      }),
+    ).toBe('[工具] Grep: foo')
+  })
+})
 describe('formatToolResultStatus', () => {
   test('returns null for success', () => {
     expect(

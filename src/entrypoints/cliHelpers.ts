@@ -53,6 +53,10 @@ export function formatToolStartStatus(block: ToolUseBlock): string {
     return `[工具] Echo: ${block.input.message}`
   }
 
+  if (block.name === 'Grep' && typeof block.input.pattern === 'string') {
+    return `[工具] Grep: ${block.input.pattern}`
+  }
+
   return `[工具] ${block.name}`
 }
 
