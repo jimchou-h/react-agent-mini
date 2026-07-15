@@ -3,6 +3,7 @@ import type { ToolUseContext } from '../../Tool.js'
 import type { ToolUseBlock } from '../../types/message.js'
 import type { AssistantMessage, UserMessage } from '../../types/message.js'
 import { createToolResultMessage } from '../../utils/messages.js'
+import { trace } from '../../utils/trace.js'
 
 /**
  * 单工具执行完成后的更新包
@@ -12,6 +13,12 @@ import { createToolResultMessage } from '../../utils/messages.js'
 export type ToolExecutionUpdate = {
   /** 包装为 user 角色的 tool_result 消息，待 yield 给 query 循环 */
   message: UserMessage
+}
+
+function isErrorResult(message: UserMessage): boolean {
+  return message.content.some(
+    b => b.type === 'tool_result' && b.is_error === true,
+  )
 }
 
 /**
@@ -33,37 +40,48 @@ export async function runToolUse(
   _parentMessage: AssistantMessage,
   context: ToolUseContext,
 ): Promise<ToolExecutionUpdate> {
+  trace('tool.start', { name: block.name, id: block.id })
+
+  const finish = (update: ToolExecutionUpdate): ToolExecutionUpdate => {
+    trace('tool.end', {
+      name: block.name,
+      id: block.id,
+      ok: !isErrorResult(update.message),
+    })
+    return update
+  }
+
   const permission = await autoAllowCanUseTool()
   if (permission.behavior === 'deny') {
-    return {
+    return finish({
       message: createToolResultMessage(
         block.id,
         permission.message,
         true,
       ),
-    }
+    })
   }
 
   const tool = findToolByName(context.tools, block.name)
   if (!tool || !tool.isEnabled()) {
-    return {
+    return finish({
       message: createToolResultMessage(
         block.id,
         `未知工具: ${block.name}`,
         true,
       ),
-    }
+    })
   }
 
   const parsed = tool.inputSchema.safeParse(block.input)
   if (!parsed.success) {
-    return {
+    return finish({
       message: createToolResultMessage(
         block.id,
         `工具参数无效: ${parsed.error.message}`,
         true,
       ),
-    }
+    })
   }
 
   try {
@@ -72,13 +90,13 @@ export async function runToolUse(
       typeof result.data === 'string'
         ? result.data
         : JSON.stringify(result.data)
-    return {
+    return finish({
       message: createToolResultMessage(block.id, text, false),
-    }
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return {
+    return finish({
       message: createToolResultMessage(block.id, msg, true),
-    }
+    })
   }
 }
