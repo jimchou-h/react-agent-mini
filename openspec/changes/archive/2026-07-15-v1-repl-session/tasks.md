@@ -21,6 +21,6 @@
 
 ## 5. 验收
 
-- [ ] 5.1 `bun run typecheck` 零错误
-- [ ] 5.2 `bun test` 全通过（含 QueryEngine 测试）
-- [ ] 5.3 人工 smoke：REPL 连续 3 轮对话上下文不丢；headless / pipe 仍可用
+- [x] 5.1 `bun run typecheck` 零错误
+- [x] 5.2 `bun test` 全通过（含 QueryEngine 测试）
+- [x] 5.3 人工 smoke：REPL 连续 3 轮对话上下文不丢；headless / pipe 仍可用
