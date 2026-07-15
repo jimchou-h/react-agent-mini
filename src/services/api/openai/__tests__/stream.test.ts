@@ -58,6 +58,36 @@ describe('parseOpenAIStream', () => {
     ])
   })
 
+  test('emits api.assistant when TRACE=1', async () => {
+    const prev = process.env.TRACE
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    const originalError = console.error
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    }
+
+    try {
+      await collectStream([
+        makeChunk({ delta: { content: 'ok' } }),
+        makeChunk({ delta: {}, finish_reason: 'stop' }),
+      ])
+
+      expect(
+        lines.some(
+          l =>
+            l.includes('[trace]') &&
+            l.includes('api.assistant') &&
+            l.includes('kind=text'),
+        ),
+      ).toBe(true)
+    } finally {
+      console.error = originalError
+      if (prev === undefined) delete process.env.TRACE
+      else process.env.TRACE = prev
+    }
+  })
+
   test('assembles fragmented tool_calls into assistant tool_use blocks', async () => {
     const events = await collectStream([
       makeChunk({

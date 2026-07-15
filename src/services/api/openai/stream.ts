@@ -1,6 +1,7 @@
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions'
 import type { AssistantMessage, StreamEvent } from '../../../types/message.js'
 import { createAssistantMessage } from '../../../utils/messages.js'
+import { trace } from '../../../utils/trace.js'
 
 type ToolCallAccumulator = {
   id: string
@@ -66,11 +67,16 @@ export async function* parseOpenAIStream(
           name: toolCall.name,
           input: parseToolArguments(toolCall.arguments),
         }))
+        trace('api.assistant', {
+          kind: 'tool_use',
+          tool_uses: content.length,
+        })
         yield createAssistantMessage(content)
         return
       }
 
       if (text.length > 0) {
+        trace('api.assistant', { kind: 'text', text_len: text.length })
         yield createAssistantMessage([{ type: 'text', text }])
       }
     }

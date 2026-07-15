@@ -3,6 +3,7 @@ import type { CallModelParams } from '../../query/types.js'
 import type { AssistantMessage, StreamEvent } from '../../types/message.js'
 import { messagesToOpenAI, toolsToOpenAI } from './openai/adapter.js'
 import { parseOpenAIStream } from './openai/stream.js'
+import { trace } from '../../utils/trace.js'
 
 export type OpenAIConfig = {
   apiKey: string
@@ -32,6 +33,19 @@ export function assertOpenAIApiKey(apiKey: string): void {
   }
 }
 
+/** TRACE=1：API 请求摘要（禁止传入密钥） */
+export function emitApiRequestTrace(detail: {
+  messages: CallModelParams['messages']
+  tools: CallModelParams['tools']
+  model: string
+}): void {
+  trace('api.request', {
+    messages: detail.messages.length,
+    tools: detail.tools.length,
+    model: detail.model,
+  })
+}
+
 let cachedClient: OpenAI | undefined
 
 function getOpenAIClient(config: OpenAIConfig): OpenAI {
@@ -58,6 +72,12 @@ export async function* callModel(
   const client = getOpenAIClient(config)
   const messages = messagesToOpenAI(params.messages)
   const tools = toolsToOpenAI(params.tools)
+
+  emitApiRequestTrace({
+    messages: params.messages,
+    tools: params.tools,
+    model: config.model,
+  })
 
   const stream = await client.chat.completions.create(
     {

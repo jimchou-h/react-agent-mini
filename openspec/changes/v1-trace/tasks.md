@@ -7,7 +7,7 @@
 
 - [x] 2.1 `cli.ts`：`cli.start`
 - [x] 2.2 `query.ts`：`query.turn_start` / `query.turn_end`（含 terminal reason）
-- [ ] 2.3 `client.ts` / `stream.ts`：`api.request` / `api.assistant` 摘要
+- [x] 2.3 `client.ts` / `stream.ts`：`api.request` / `api.assistant` 摘要
 - [ ] 2.4 `execution.ts`：`tool.start` / `tool.end`
 
 ## 3. 文档
