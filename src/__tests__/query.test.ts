@@ -241,4 +241,52 @@ describe('query', () => {
 
     expect(terminal).toEqual({ reason: 'max_turns', turnCount: 2 })
   })
+
+  test('emits query.turn_start and query.turn_end when TRACE=1', async () => {
+    const prev = process.env.TRACE
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    const originalError = console.error
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    }
+
+    try {
+      async function* mockTextOnly(): AsyncGenerator<
+        StreamEvent | AssistantMessage
+      > {
+        yield createAssistantMessage([{ type: 'text', text: 'hi' }])
+      }
+
+      const tools = getTools()
+      const { terminal } = await drainQuery(
+        query({
+          messages: [createUserMessage('hi')],
+          tools,
+          toolUseContext: createMinimalToolContext(tools),
+          deps: {
+            callModel: mockTextOnly,
+            uuid: () => 'trace-turn-uuid',
+          },
+        }),
+      )
+
+      expect(terminal).toEqual({ reason: 'completed' })
+      expect(lines.some(l => l.includes('[trace]') && l.includes('query.turn_start'))).toBe(
+        true,
+      )
+      expect(
+        lines.some(
+          l =>
+            l.includes('[trace]') &&
+            l.includes('query.turn_end') &&
+            l.includes('reason=completed'),
+        ),
+      ).toBe(true)
+    } finally {
+      console.error = originalError
+      if (prev === undefined) delete process.env.TRACE
+      else process.env.TRACE = prev
+    }
+  })
 })

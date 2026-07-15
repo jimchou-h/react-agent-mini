@@ -13,6 +13,7 @@ import {
   createAssistantMessage,
   extractToolUseBlocks,
 } from './utils/messages.js'
+import { trace } from './utils/trace.js'
 
 /**
  * ReAct 主入口 — 对齐 claude-code src/query.ts 的 public API
@@ -69,6 +70,7 @@ async function* queryLoop(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const { messages, turnCount } = state
+    trace('query.turn_start', { turn: turnCount })
 
     /** 本轮模型产生的 assistant 消息（通常一条） */
     const assistantMessages: AssistantMessage[] = []
@@ -112,6 +114,7 @@ async function* queryLoop(
 
     // —— 阶段 2：无工具则结束 ——
     if (!needsFollowUp) {
+      trace('query.turn_end', { reason: 'completed', turn: turnCount })
       return { reason: 'completed' }
     }
 
@@ -135,6 +138,10 @@ async function* queryLoop(
     // —— 阶段 4：轮次上限检查 ——
     const nextTurnCount = turnCount + 1
     if (nextTurnCount > maxTurns) {
+      trace('query.turn_end', {
+        reason: 'max_turns',
+        turn: nextTurnCount,
+      })
       return { reason: 'max_turns', turnCount: nextTurnCount }
     }
 

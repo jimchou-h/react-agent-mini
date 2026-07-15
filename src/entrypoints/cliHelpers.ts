@@ -1,4 +1,5 @@
 import type { ToolResultBlock, ToolUseBlock } from '../types/message.js'
+import { trace } from '../utils/trace.js'
 
 /** 解析参数时需忽略的 CLI 标志位 */
 export const CLI_FLAGS = new Set(['-p', '--mock', '-m'])
@@ -49,6 +50,11 @@ export function resolveLaunchMode(argv: string[]): LaunchMode {
     return 'headless'
   }
   return 'repl'
+}
+
+/** TRACE=1 时记录 CLI 启动模式 */
+export function traceCliStart(mode: LaunchMode): void {
+  trace('cli.start', { mode })
 }
 
 /** 是否启用 mock 模型（QUERY_MOCK=1、--mock、-m） */

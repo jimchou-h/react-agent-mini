@@ -16,6 +16,7 @@ import {
   isMockMode,
   parseUserPrompt,
   resolveLaunchMode,
+  traceCliStart,
 } from './cliHelpers.js'
 
 async function readStdin(): Promise<string> {
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
 
   const mode = resolveLaunchMode(argv)
   ensureAuth(argv)
+  traceCliStart(mode)
 
   try {
     if (mode === 'pipe') {

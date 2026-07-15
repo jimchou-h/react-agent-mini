@@ -1,9 +1,10 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import {
   formatToolResultStatus,
   formatToolStartStatus,
   isMockMode,
   parseUserPrompt,
+  traceCliStart,
 } from '../cliHelpers.js'
 
 describe('parseUserPrompt', () => {
@@ -106,5 +107,47 @@ describe('formatToolResultStatus', () => {
         is_error: true,
       }),
     ).toBe('[工具] 错误 — 文件不存在')
+  })
+})
+
+describe('traceCliStart', () => {
+  const prev = process.env.TRACE
+  const originalError = console.error
+
+  afterEach(() => {
+    console.error = originalError
+    if (prev === undefined) delete process.env.TRACE
+    else process.env.TRACE = prev
+  })
+
+  test('emits cli.start when TRACE=1', () => {
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    }
+
+    traceCliStart('headless')
+
+    expect(
+      lines.some(
+        l =>
+          l.includes('[trace]') &&
+          l.includes('cli.start') &&
+          l.includes('mode=headless'),
+      ),
+    ).toBe(true)
+  })
+
+  test('emits nothing when TRACE unset', () => {
+    delete process.env.TRACE
+    const lines: string[] = []
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    }
+
+    traceCliStart('repl')
+
+    expect(lines).toEqual([])
   })
 })
