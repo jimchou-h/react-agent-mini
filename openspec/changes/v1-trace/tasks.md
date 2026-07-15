@@ -12,8 +12,8 @@
 
 ## 3. 文档
 
-- [ ] 3.1 更新或新增 `docs/learning/trace-flow.md`：stage 列表与示例输出
-- [ ] 3.2 `docs/architecture.md` 增加 TRACE 小节
+- [x] 3.1 更新或新增 `docs/trace-flow.md`：stage 列表与示例输出（`docs/learning/` 已 gitignore，改放仓库可读路径）
+- [x] 3.2 `docs/architecture.md` 增加 TRACE 小节
 
 ## 4. 验收
 

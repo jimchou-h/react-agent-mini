@@ -62,7 +62,9 @@ src/
 │       ├── execution.ts       # 单工具 runToolUse
 │       └── orchestration.ts   # 串行 runTools
 ├── types/message.ts
-└── utils/messages.ts
+└── utils/
+    ├── messages.ts
+    └── trace.ts                   # TRACE=1 结构化调试日志
 ```
 
 ### 数据流（单次 tool 轮）
@@ -100,6 +102,19 @@ Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
 
 - 模型文本 → **stdout**（`text_delta` 流式）
 - 工具状态 → **stderr**（`[工具] Read: path`）
+
+## TRACE 调试日志
+
+设置 `TRACE=1` 时，关键边界向 stderr 打印 `[trace] stage key=value …`：
+
+| stage | 含义 |
+|-------|------|
+| `cli.start` | CLI 启动（mode） |
+| `query.turn_start` / `query.turn_end` | ReAct 每轮开始/结束（含 reason） |
+| `api.request` / `api.assistant` | 真实模型请求摘要 / 流结束 |
+| `tool.start` / `tool.end` | 工具执行边界 |
+
+默认关闭，无开销。stage 列表与示例见 [`docs/trace-flow.md`](./trace-flow.md)。
 
 ## 与 claude-code 的扩展映射
 
