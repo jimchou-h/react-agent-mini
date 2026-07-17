@@ -17,6 +17,6 @@
 
 ## 4. 验收
 
-- [ ] 4.1 `bun run typecheck` 零错误
-- [ ] 4.2 `bun test` 全通过
-- [ ] 4.3 `TRACE=1 dev:mock -- "用 Echo 回复 hi"` 人工确认 stderr trace 顺序
+- [x] 4.1 `bun run typecheck` 零错误
+- [x] 4.2 `bun test` 全通过
+- [x] 4.3 `TRACE=1 dev:mock -- "用 Echo 回复 hi"` 人工确认 stderr trace 顺序
