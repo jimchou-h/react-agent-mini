@@ -17,6 +17,21 @@ describe('messagesToOpenAI', () => {
     ] satisfies ChatCompletionMessageParam[])
   })
 
+  test('prepends system message when systemPrompt is provided', () => {
+    const result = messagesToOpenAI([createUserMessage('你好')], 'project rules')
+
+    expect(result).toEqual([
+      { role: 'system', content: 'project rules' },
+      { role: 'user', content: '你好' },
+    ] satisfies ChatCompletionMessageParam[])
+  })
+
+  test('omits system message when systemPrompt is empty', () => {
+    const result = messagesToOpenAI([createUserMessage('你好')], '')
+
+    expect(result).toEqual([{ role: 'user', content: '你好' }])
+  })
+
   test('converts assistant text to OpenAI assistant message', () => {
     const result = messagesToOpenAI([
       createUserMessage('hi'),

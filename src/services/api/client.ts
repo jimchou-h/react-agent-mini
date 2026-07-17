@@ -70,7 +70,7 @@ export async function* callModel(
   assertOpenAIApiKey(config.apiKey)
 
   const client = getOpenAIClient(config)
-  const messages = messagesToOpenAI(params.messages)
+  const messages = messagesToOpenAI(params.messages, params.systemPrompt)
   const tools = toolsToOpenAI(params.tools)
 
   emitApiRequestTrace({

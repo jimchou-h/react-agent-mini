@@ -5,8 +5,8 @@
 
 ## 2. Provider 与 query
 
-- [ ] 2.1 `CallModelParams` / `QueryParams` 增加可选 `systemPrompt`
-- [ ] 2.2 `adapter` / `callModel` 注入 system 消息；单测覆盖
+- [x] 2.1 `CallModelParams` / `QueryParams` 增加可选 `systemPrompt`
+- [x] 2.2 `adapter` / `callModel` 注入 system 消息；单测覆盖
 - [ ] 2.3 `query.ts` 透传 `systemPrompt` 到 `callModel`
 
 ## 3. CLI 接线

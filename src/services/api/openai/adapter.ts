@@ -14,8 +14,15 @@ import type {
  * 关键约束：同一 user 回合内，tool_result 必须先于 text 发出，
  * 否则 OpenAI API 会报 "insufficient tool messages following tool_calls"。
  */
-export function messagesToOpenAI(messages: Message[]): ChatCompletionMessageParam[] {
+export function messagesToOpenAI(
+  messages: Message[],
+  systemPrompt?: string,
+): ChatCompletionMessageParam[] {
   const result: ChatCompletionMessageParam[] = []
+
+  if (systemPrompt) {
+    result.push({ role: 'system', content: systemPrompt })
+  }
 
   for (const message of messages) {
     if (message.type === 'assistant') {

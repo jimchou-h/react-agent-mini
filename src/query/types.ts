@@ -29,6 +29,8 @@ export type QueryParams = {
   maxTurns?: number
   /** 可注入的依赖（测试用 mock callModel）；缺省走 productionDeps() */
   deps?: QueryDeps
+  /** 项目级 system prompt，每轮 callModel 透传 */
+  systemPrompt?: string
 }
 
 /**
@@ -43,6 +45,8 @@ export type CallModelParams = {
   tools: Tools
   /** 可选中止信号，用于用户取消（v0 未接线） */
   signal?: AbortSignal
+  /** 项目级 system prompt；不写入对话 messages 历史 */
+  systemPrompt?: string
 }
 
 /**
