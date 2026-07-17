@@ -10,7 +10,8 @@
 
 | 术语 | 英文 | 说明 |
 |------|------|------|
-| **callModel** | `callModel()` | Provider 入口；`AsyncGenerator` 流式输出 |
+| **callModel** | `callModel()` | Provider 入口；`AsyncGenerator` 流式输出；透传 `systemPrompt` |
+| **systemPrompt** | CallModelParams | 项目上下文；adapter 插入 OpenAI messages 首位，不进入对话历史 |
 | **mockEchoCallModel** | mock provider | `QUERY_MOCK=1` 时使用，规则匹配 Echo 场景 |
 | **readOpenAIConfig** | config reader | 从环境变量读取 Key / baseURL / model |
 | **assertOpenAIApiKey** | key guard | Key 缺失时抛错，CLI 启动前也会检查 |
@@ -19,7 +20,7 @@
 
 | 术语 | 文件 | 说明 |
 |------|------|------|
-| **messagesToOpenAI** | `adapter.ts` | 内部 `Message[]` → OpenAI `messages` |
+| **messagesToOpenAI** | `adapter.ts` | 内部 `Message[]` → OpenAI `messages`；可选第二参 `systemPrompt` 前置 `role: system` |
 | **toolsToOpenAI** | `adapter.ts` | `Tool[]` → OpenAI `tools` JSON schema |
 | **openAIToAssistant** | `adapter.ts` | 非流式 completion → `AssistantMessage` |
 | **parseOpenAIStream** | `stream.ts` | SSE 流解析：`text_delta`、增量 `tool_calls` 组装 |

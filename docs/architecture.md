@@ -64,17 +64,29 @@ src/
 ├── types/message.ts
 └── utils/
     ├── messages.ts
+    ├── projectContext.ts          # AGENTS.md / CLAUDE.md → systemPrompt
     └── trace.ts                   # TRACE=1 结构化调试日志
 ```
 
 ### 数据流（单次 tool 轮）
 
-1. **出站**：`messages` + `tools` → `adapter.ts` 转为 OpenAI Chat Completions 格式
+1. **出站**：可选 `systemPrompt` + `messages` + `tools` → `adapter.ts` 转为 OpenAI Chat Completions（system 在 messages 首位）
 2. **入站**：`stream.ts` 解析流 → `text_delta` + `assistant`（含 `tool_use`）
 3. **执行**：`runToolUse` 校验 input（Zod）→ `tool.call()` → `tool_result`
 4. **回环**：`appendTurnMessages` 把 assistant + tool_results 追加进 `messages`
 
 内部消息统一为 **Anthropic 形态**（`tool_use` / `tool_result`），与 claude-code 一致；DeepSeek 差异由 `services/api/openai/` 吸收。
+
+## 项目上下文（systemPrompt）
+
+启动时（REPL / headless / pipe）调用 `loadProjectContext()`：
+
+1. 自 `cwd` 向上查找（最多 5 层，遇 git root 停止）
+2. 同目录优先：`AGENTS.md` 与 `CLAUDE.md` 都有则合并（AGENTS 在前）；仅其一则加载该文件
+3. 合并后超过 **64KB** 截断并注明
+4. 结果作为 `systemPrompt` 传入 `QueryEngine` / `query` / `callModel`；**不写入**对话 `messages[]`
+
+因此 REPL `/clear` 只清空会话历史，**不清除**项目上下文。无上下文文件时行为与 v1 一致（静默跳过）。
 
 ## Provider 适配层
 
@@ -128,6 +140,7 @@ Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
 | `tools/*` | `packages/builtin-tools/` | Bash、Write、Grep、Agent… |
 | `services/api/openai/` | `src/services/api/openai/` | thinking mode、多模型映射 |
 | `QueryEngine.ts` | `src/QueryEngine.ts` | compact、file history、attribution |
+| `utils/projectContext.ts` | `src/context.ts` / `claudemd.ts` | 完整 memory、git status、多级 CLAUDE 树 |
 | `entrypoints/cli.ts` + `repl.ts` | `src/main.tsx` + `REPL.tsx` | Ink UI、权限弹窗 |
 | `services/tools/orchestration.ts` | 同名 | `partitionToolCalls` 并发分区 |
 

@@ -18,6 +18,7 @@ bun install
 | `OPENAI_BASE_URL` | 否 | `https://api.deepseek.com` | OpenAI 兼容 API 地址 |
 | `OPENAI_MODEL` | 否 | `deepseek-chat` | 模型名称 |
 | `QUERY_MOCK` | 否 | — | 设为 `1` 使用内置 mock（无需 Key） |
+| `TRACE` | 否 | — | 设为 `1` 向 stderr 打印 `[trace]` 全链路日志 |
 
 PowerShell 设置示例：
 
@@ -52,6 +53,19 @@ REPL 内可用：
 | `/exit` 或 `/quit` | 退出 |
 
 > 若曾设置 `$env:QUERY_MOCK="1"`，请先 `Remove-Item Env:QUERY_MOCK`，否则会一直走仅 Echo 的 mock。
+
+### 项目上下文（AGENTS.md / CLAUDE.md）
+
+启动时从当前工作目录向上查找项目说明，并作为 **system prompt** 注入模型（不进入对话历史）：
+
+| 规则 | 行为 |
+|------|------|
+| 文件名 | 优先同目录 `AGENTS.md`；可与 `CLAUDE.md` 合并（AGENTS 在前） |
+| 缺失 | 静默跳过，不影响启动 |
+| `/clear` | 只清空多轮对话；system 上下文仍保留 |
+| 大小 | 合并后最多 64KB，超出截断 |
+
+本仓库根目录的 `AGENTS.md` 会在真实模型模式下自动生效。Mock 模式仍会加载并透传 `systemPrompt`，但假模型不解读内容。
 
 ### Mock 单次问答（无需 API Key）
 
@@ -101,7 +115,9 @@ echo "用 Echo 回复 hello" | bun run dev:mock -p
 ## 架构速览
 
 ```
-用户 → cli.ts → QueryEngine.runTurn / query()
+用户 → cli.ts → loadProjectContext() → systemPrompt
+                      ↓
+              QueryEngine.runTurn / query()
                       ↓
                  callModel (DeepSeek / mock)
                       ↓
@@ -110,4 +126,4 @@ echo "用 Echo 回复 hello" | bun run dev:mock -p
                  text → stdout；工具状态 → stderr
 ```
 
-支持 **交互 REPL（多轮）** 与 **headless / pipe（单次）**。
+支持 **交互 REPL（多轮）** 与 **headless / pipe（单次）**；项目上下文对三种模式均生效。

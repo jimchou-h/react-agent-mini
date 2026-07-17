@@ -17,6 +17,6 @@
 
 ## 4. 文档与验收
 
-- [ ] 4.1 更新 `docs/architecture.md`、相关 CONTEXT.md、README
+- [x] 4.1 更新 `docs/architecture.md`、相关 CONTEXT.md、README
 - [ ] 4.2 `bun run typecheck` 与 `bun test` 通过
 - [ ] 4.3 人工 smoke：目录有 AGENTS.md 时 TRACE/行为可见 system 生效（或单测等价）

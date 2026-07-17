@@ -17,11 +17,12 @@ ReAct 主循环与 `query()` 公共 API。源码入口：`src/query.ts`、`src/q
 
 | 术语 | 类型 | 说明 |
 |------|------|------|
-| **QueryParams** | 入参 | `messages`、`tools`、`toolUseContext`、可选 `maxTurns` / `deps` |
+| **QueryParams** | 入参 | `messages`、`tools`、`toolUseContext`、可选 `maxTurns` / `deps` / `systemPrompt` |
 | **QueryState** | 内部状态 | `messages` + `turnCount`，每轮整体替换 |
 | **QueryDeps** | 依赖注入 | `{ callModel, uuid }`；测试注入 fake，生产用 `productionDeps()` |
 | **CallModel** | 函数签名 | 流式 yield `text_delta` 或 `AssistantMessage` |
-| **CallModelParams** | Provider 入参 | 当前 `messages` + `tools` schema |
+| **CallModelParams** | Provider 入参 | 当前 `messages` + `tools` schema + 可选 `systemPrompt` |
+| **systemPrompt** | system prompt | 项目上下文字符串；透传给 callModel，不写入 messages |
 | **QueryYield** | yield 类型 | `StreamEvent` \| `UserMessage` \| `AssistantMessage` |
 
 ## 依赖注入
@@ -38,6 +39,14 @@ ReAct 主循环与 `query()` 公共 API。源码入口：`src/query.ts`、`src/q
 |------|------|------|
 | **QueryEngine** | QueryEngine | 跨多轮用户输入累积 messages；runTurn / clear |
 | **runTurn** | runTurn | 追加 user → query() → 合并 yield 的消息 |
+| **systemPrompt（引擎）** | constructor | 构造时注入；每轮 runTurn 透传；`clear()` 不清 |
+
+## 项目上下文
+
+| 术语 | 说明 |
+|------|------|
+| **loadProjectContext** | `src/utils/projectContext.ts`：发现 AGENTS.md / CLAUDE.md → 返回 string \| undefined |
+| **注入路径** | CLI 启动 → QueryEngine / query → callModel → adapter 首位 `role: system` |
 
 ## 与 claude-code 对齐点
 
@@ -52,5 +61,6 @@ ReAct 主循环与 `query()` 公共 API。源码入口：`src/query.ts`、`src/q
 |------|------|
 | `src/query.ts` | `query()`、`queryLoop()` |
 | `src/query/deps.ts` | `QueryDeps`、`productionDeps()` |
-| `src/query/types.ts` | `QueryParams`、`Terminal`、`CallModel` |
+| `src/query/types.ts` | `QueryParams`、`Terminal`、`CallModel`、`systemPrompt` |
 | `src/QueryEngine.ts` | L1 QueryEngine 会话封装 |
+| `src/utils/projectContext.ts` | 项目 Markdown 发现与截断 |
