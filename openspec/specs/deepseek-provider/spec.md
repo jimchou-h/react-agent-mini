@@ -1,3 +1,11 @@
+# deepseek-provider Specification
+
+## Purpose
+
+通过 OpenAI 兼容 SDK 连接 DeepSeek，并在 Anthropic 形态消息与 Chat Completions 格式之间双向适配（含流式解析与 tools schema）。
+
+## Requirements
+
 ### Requirement: DeepSeek API 连接
 
 系统 SHALL 通过 OpenAI SDK 连接 DeepSeek，使用环境变量 `OPENAI_API_KEY`、`OPENAI_BASE_URL`（默认 `https://api.deepseek.com`）、`OPENAI_MODEL`（默认 `deepseek-chat`）。

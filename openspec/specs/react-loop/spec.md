@@ -1,3 +1,11 @@
+# react-loop Specification
+
+## Purpose
+
+L2 ReAct 主循环：`query()` 在单次用户请求内循环「调用模型 → 执行工具 → 追加消息」，直到无 tool_use 或达到 maxTurns。
+
+## Requirements
+
 ### Requirement: ReAct 多轮循环
 
 系统 SHALL 实现 `query()` 异步生成器，在单次用户请求内循环执行「调用模型 → 执行工具 → 追加消息」，直到模型响应不再包含 `tool_use` 块。
