@@ -51,3 +51,12 @@ L2 ReAct 主循环：`query()` 在单次用户请求内循环「调用模型 →
 
 - **WHEN** CLI 迭代 `query()` 生成器
 - **THEN** CLI 可逐条接收流式 text delta 与最终消息用于终端输出
+
+### Requirement: query 透传 systemPrompt
+
+`query()` / `QueryParams` SHALL 支持可选 `systemPrompt`，并在每轮 `callModel` 时透传。
+
+#### Scenario: 透传到 deps.callModel
+
+- **WHEN** 调用 `query({ systemPrompt: "规则…", ... })`
+- **THEN** 每次 `deps.callModel` 收到相同的 `systemPrompt`
