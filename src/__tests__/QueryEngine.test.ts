@@ -115,6 +115,34 @@ describe('QueryEngine', () => {
     expect(terminal).toEqual({ reason: 'max_turns', turnCount: 2 })
   })
 
+  test('forwards systemPrompt on every runTurn after clear', async () => {
+    const seen: string[] = []
+    async function* captureCallModel(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      if (params.systemPrompt) seen.push(params.systemPrompt)
+      yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+    }
+
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      systemPrompt: 'project rules',
+      deps: {
+        callModel: captureCallModel,
+        uuid: () => 'qe-system',
+      },
+    })
+
+    await drainTurn(engine.runTurn('one'))
+    engine.clear()
+    await drainTurn(engine.runTurn('two'))
+
+    expect(seen).toEqual(['project rules', 'project rules'])
+    expect(engine.messages.length).toBeGreaterThan(0)
+  })
+
   test('runTurn yields text_delta and assistant like query', async () => {
     const tools = getTools()
     const engine = new QueryEngine({

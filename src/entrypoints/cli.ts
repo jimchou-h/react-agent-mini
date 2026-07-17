@@ -10,6 +10,7 @@ import { QueryEngine } from '../QueryEngine.js'
 import { getTools } from '../tools/index.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createUserMessage } from '../utils/messages.js'
+import { loadProjectContext } from '../utils/projectContext.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 import { runRepl } from './repl.js'
 import {
@@ -48,11 +49,16 @@ function ensureAuth(argv: string[]): void {
   }
 }
 
-async function runHeadless(prompt: string): Promise<void> {
+async function runHeadless(
+  prompt: string,
+  systemPrompt?: string,
+): Promise<void> {
   const tools = getTools()
   const context = createMinimalToolContext(tools)
   const messages = [createUserMessage(prompt)]
-  await consumeQueryStream(query({ messages, tools, toolUseContext: context }))
+  await consumeQueryStream(
+    query({ messages, tools, toolUseContext: context, systemPrompt }),
+  )
 }
 
 async function main(): Promise<void> {
@@ -67,13 +73,15 @@ async function main(): Promise<void> {
   traceCliStart(mode)
 
   try {
+    const systemPrompt = await loadProjectContext()
+
     if (mode === 'pipe') {
       const prompt = await readStdin()
       if (!prompt) {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt)
+      await runHeadless(prompt, systemPrompt)
       return
     }
 
@@ -83,7 +91,7 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt)
+      await runHeadless(prompt, systemPrompt)
       return
     }
 
@@ -92,6 +100,7 @@ async function main(): Promise<void> {
     const engine = new QueryEngine({
       tools,
       toolUseContext: createMinimalToolContext(tools),
+      systemPrompt,
     })
     await runRepl(engine)
   } catch (err) {

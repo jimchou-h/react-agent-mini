@@ -10,6 +10,7 @@ export type QueryEngineParams = {
   toolUseContext: ToolUseContext
   deps?: QueryDeps
   maxTurns?: number
+  systemPrompt?: string
 }
 
 /**
@@ -23,6 +24,7 @@ export class QueryEngine {
   readonly #toolUseContext: ToolUseContext
   readonly #deps: QueryDeps | undefined
   readonly #maxTurns: number | undefined
+  readonly #systemPrompt: string | undefined
   #messages: Message[] = []
 
   constructor(params: QueryEngineParams) {
@@ -30,6 +32,7 @@ export class QueryEngine {
     this.#toolUseContext = params.toolUseContext
     this.#deps = params.deps
     this.#maxTurns = params.maxTurns
+    this.#systemPrompt = params.systemPrompt
   }
 
   /** 当前会话消息历史（只读快照视图，勿外部 mutate） */
@@ -49,6 +52,7 @@ export class QueryEngine {
       toolUseContext: this.#toolUseContext,
       maxTurns: this.#maxTurns,
       deps: this.#deps,
+      systemPrompt: this.#systemPrompt,
     })
 
     while (true) {

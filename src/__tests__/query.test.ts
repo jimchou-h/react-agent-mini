@@ -242,6 +242,33 @@ describe('query', () => {
     expect(terminal).toEqual({ reason: 'max_turns', turnCount: 2 })
   })
 
+  test('forwards systemPrompt to callModel', async () => {
+    let seenSystemPrompt: string | undefined
+    async function* captureCallModel(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      seenSystemPrompt = params.systemPrompt
+      yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+    }
+
+    const tools = getTools()
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        toolUseContext: createMinimalToolContext(tools),
+        systemPrompt: 'project rules',
+        deps: {
+          callModel: captureCallModel,
+          uuid: () => 'system-prompt-uuid',
+        },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(seenSystemPrompt).toBe('project rules')
+  })
+
   test('emits query.turn_start and query.turn_end when TRACE=1', async () => {
     const prev = process.env.TRACE
     process.env.TRACE = '1'

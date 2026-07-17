@@ -7,13 +7,13 @@
 
 - [x] 2.1 `CallModelParams` / `QueryParams` 增加可选 `systemPrompt`
 - [x] 2.2 `adapter` / `callModel` 注入 system 消息；单测覆盖
-- [ ] 2.3 `query.ts` 透传 `systemPrompt` 到 `callModel`
+- [x] 2.3 `query.ts` 透传 `systemPrompt` 到 `callModel`
 
 ## 3. CLI 接线
 
-- [ ] 3.1 `QueryEngine` 构造支持 `systemPrompt`
-- [ ] 3.2 `cli.ts` / `repl.ts` 启动时 `loadProjectContext()` 并传入
-- [ ] 3.3 headless / pipe 同样注入
+- [x] 3.1 `QueryEngine` 构造支持 `systemPrompt`
+- [x] 3.2 `cli.ts` / `repl.ts` 启动时 `loadProjectContext()` 并传入
+- [x] 3.3 headless / pipe 同样注入
 
 ## 4. 文档与验收
 

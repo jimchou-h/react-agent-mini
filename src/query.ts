@@ -94,6 +94,7 @@ async function* queryLoop(
     for await (const chunk of deps.callModel({
       messages,
       tools: params.tools,
+      systemPrompt: params.systemPrompt,
     })) {
       if (chunk.type === 'text_delta') {
         yield chunk satisfies StreamEvent
