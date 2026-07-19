@@ -51,8 +51,11 @@ src/
 ├── query/
 │   ├── deps.ts                # QueryDeps 依赖注入
 │   └── types.ts               # QueryParams、Terminal、CallModel
+├── skills/
+│   ├── discover.ts            # 扫描并解析 SKILL.md
+│   └── systemPrompt.ts        # 会话快照 + 可用 Skills 摘要
 ├── Tool.ts                    # Tool 契约、ToolUseContext
-├── tools/                     # Echo、Read、Grep、Glob + getTools()
+├── tools/                     # Echo、Read、Grep、Glob、Skill + getTools()
 ├── services/
 │   ├── api/
 │   │   ├── client.ts          # callModel 入口
@@ -87,6 +90,17 @@ src/
 4. 结果作为 `systemPrompt` 传入 `QueryEngine` / `query` / `callModel`；**不写入**对话 `messages[]`
 
 因此 REPL `/clear` 只清空会话历史，**不清除**项目上下文。无上下文文件时行为与 v1 一致（静默跳过）。
+
+## Skills 扩展
+
+`loadSessionContext()` 在进程启动时并行加载项目上下文与 workspace skills，形成整场会话复用的快照：
+
+1. `discoverSkills()` 扫描 `.agents/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`
+2. 解析 frontmatter 的 `name` / `description`，正文上限 32KB
+3. `buildSystemPrompt()` 把名称摘要追加到 project context
+4. 模型调用只读 `Skill({ skill })`，正文作为 `tool_result` 回注下一轮推理
+
+Skill 正文不会永久追加到 system prompt；仅目录摘要常驻。这样既可发现具名工作流，又避免所有技能正文占满上下文。`/clear` 不重扫目录。
 
 ## Provider 适配层
 
@@ -138,6 +152,7 @@ Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
 | `query/deps.ts` | `src/query/deps.ts` | 更多 IO 依赖 |
 | `Tool.ts` | `src/Tool.ts` | 完整 `canUseTool`、MCP 工具 |
 | `tools/*` | `packages/builtin-tools/` | Bash、Write、Grep、Agent… |
+| `skills/*` + `SkillTool` | Skill 系统 | 插件源、fork Agent、Skill 内 MCP |
 | `services/api/openai/` | `src/services/api/openai/` | thinking mode、多模型映射 |
 | `QueryEngine.ts` | `src/QueryEngine.ts` | compact、file history、attribution |
 | `utils/projectContext.ts` | `src/context.ts` / `claudemd.ts` | 完整 memory、git status、多级 CLAUDE 树 |

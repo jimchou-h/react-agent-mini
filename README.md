@@ -67,6 +67,21 @@ REPL 内可用：
 
 本仓库根目录的 `AGENTS.md` 会在真实模型模式下自动生效。Mock 模式仍会加载并透传 `systemPrompt`，但假模型不解读内容。
 
+### Skills（按需工作流）
+
+启动时扫描以下工作区目录一次：
+
+- `.agents/skills/*/SKILL.md`
+- `.claude/skills/*/SKILL.md`
+
+每个 `SKILL.md` 可用 YAML frontmatter 声明 `name` 与 `description`；缺少 `name` 时使用目录名。可用技能摘要会加入 system prompt，模型通过只读 `Skill` 工具按名称加载正文。单技能正文最多 32KB，REPL `/clear` 不重新扫描。
+
+本仓库包含 `.agents/skills/echo-demo/SKILL.md` 示例。真实模型可根据 system 摘要调用：
+
+```text
+Skill({ "skill": "echo-demo" })
+```
+
 ### Mock 单次问答（无需 API Key）
 
 ```powershell
@@ -115,7 +130,9 @@ echo "用 Echo 回复 hello" | bun run dev:mock -p
 ## 架构速览
 
 ```
-用户 → cli.ts → loadProjectContext() → systemPrompt
+用户 → cli.ts → loadSessionContext()
+                    ├─ project context
+                    └─ skills 摘要 + skills 快照
                       ↓
               QueryEngine.runTurn / query()
                       ↓

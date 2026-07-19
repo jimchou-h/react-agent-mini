@@ -12,7 +12,8 @@
 | 路径 | 职责 | 术语表 |
 |------|------|--------|
 | `src/query/` | ReAct 主循环、`query()` API、依赖注入、systemPrompt | [`src/query/CONTEXT.md`](src/query/CONTEXT.md) |
-| `src/tools/` | 内置工具（Echo、Read、Grep、Glob）、`getTools()` | [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md) |
+| `src/skills/` | SKILL.md 发现、摘要与会话快照 | [`src/skills/CONTEXT.md`](src/skills/CONTEXT.md) |
+| `src/tools/` | 内置工具（Echo、Read、Grep、Glob、Skill）、`getTools()` | [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md) |
 | `src/services/api/` | DeepSeek Provider、`callModel`、适配层 | [`src/services/api/CONTEXT.md`](src/services/api/CONTEXT.md) |
 | `src/utils/projectContext.ts` | AGENTS.md / CLAUDE.md 发现与注入 | 见 query CONTEXT「项目上下文」 |
 

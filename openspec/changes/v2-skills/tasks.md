@@ -16,9 +16,9 @@
 
 ## 4. 文档与验收
 
-- [ ] 4.1 示例 skill（如 `.agents/skills/echo-demo/SKILL.md`）+ README / architecture
-- [ ] 4.2 `bun run typecheck` 与 `bun test` 通过
-- [ ] 4.3 Smoke：模型或 mock 调用 Skill 后能引用技能内容
+- [x] 4.1 示例 skill（如 `.agents/skills/echo-demo/SKILL.md`）+ README / architecture
+- [x] 4.2 `bun run typecheck` 与 `bun test` 通过
+- [x] 4.3 Smoke：模型或 mock 调用 Skill 后能引用技能内容
 
 ## 依赖
 

@@ -8,7 +8,7 @@
 |------|------|------|
 | **Tool** | tool definition | `name`、`description`、`inputSchema`（Zod）、`call()` |
 | **Tools** | tools registry | `readonly Tool[]`，由 `getTools()` 提供 |
-| **ToolUseContext** | tool context | v0 仅含 `tools` 列表；后续可扩展权限、MCP |
+| **ToolUseContext** | tool context | `tools` 列表 + 可选会话 `skills` 快照；后续可扩展权限、MCP |
 | **ToolResult** | tool result | `{ data }`，由 `runToolUse` 序列化为 `tool_result.content` |
 | **tool_use** | tool use block | 模型请求调用工具；`AssistantMessage` 中的块类型 |
 | **tool_result** | tool result block | 工具执行结果；`UserMessage` 中的块类型 |
@@ -22,7 +22,7 @@
 | **autoAllowCanUseTool** | v0 权限策略：恒 `{ behavior: 'allow' }` |
 | **findToolByName** | 按 `tool_use.name` 查找工具定义 |
 
-## 内置工具（v1）
+## 内置工具
 
 | 工具 | 只读 | 说明 |
 |------|------|------|
@@ -30,6 +30,7 @@
 | **Read** | 是 | 读取 cwd 内 UTF-8 文件；单文件 ≤100KB；可选 `offset`/`limit` 分段 |
 | **Grep** | 是 | cwd 内正则搜内容；`head_limit` 默认 50 |
 | **Glob** | 是 | cwd 内 glob 列文件；最多 100 条 |
+| **Skill** | 是 | 按名称返回已发现 SKILL.md 正文；未知名称返回错误 |
 
 ### Read 专用术语
 
