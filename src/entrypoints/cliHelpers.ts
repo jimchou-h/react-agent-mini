@@ -88,6 +88,10 @@ export function formatToolStartStatus(block: ToolUseBlock): string {
     return `[工具] Glob: ${block.input.pattern}`
   }
 
+  if (block.name === 'Skill' && typeof block.input.skill === 'string') {
+    return `[工具] Skill: ${block.input.skill}`
+  }
+
   return `[工具] ${block.name}`
 }
 

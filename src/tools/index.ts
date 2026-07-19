@@ -3,6 +3,7 @@ import { EchoTool } from './EchoTool.js'
 import { GlobTool } from './GlobTool.js'
 import { GrepTool } from './GrepTool.js'
 import { ReadTool } from './ReadTool.js'
+import { SkillTool } from './SkillTool.js'
 
 /**
  * 返回当前进程注册的所有内置工具
@@ -11,5 +12,5 @@ import { ReadTool } from './ReadTool.js'
  * 对齐 claude-code src/tools.ts 的组装方式，v0 为静态列表。
  */
 export function getTools(): Tools {
-  return [EchoTool, ReadTool, GrepTool, GlobTool]
+  return [EchoTool, ReadTool, GrepTool, GlobTool, SkillTool]
 }

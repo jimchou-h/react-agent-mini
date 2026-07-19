@@ -5,9 +5,9 @@
 
 ## 2. Skill 工具
 
-- [ ] 2.1 实现 `src/tools/SkillTool.ts`
-- [ ] 2.2 注册到 `getTools()`；`cliHelpers` 状态行
-- [ ] 2.3 单元测试：成功加载 / 未知名
+- [x] 2.1 实现 `src/tools/SkillTool.ts`
+- [x] 2.2 注册到 `getTools()`；`cliHelpers` 状态行
+- [x] 2.3 单元测试：成功加载 / 未知名
 
 ## 3. 与 system prompt 集成
 

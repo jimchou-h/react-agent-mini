@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type { AssistantMessage } from './types/message.js'
+import type { DiscoveredSkill } from './skills/discover.js'
 
 /**
  * 工具执行上下文（精简版 ToolUseContext）
@@ -10,6 +11,8 @@ import type { AssistantMessage } from './types/message.js'
 export type ToolUseContext = {
   /** 当前会话可用的工具注册表 */
   tools: Tools
+  /** 进程启动时发现的 skills 快照 */
+  skills?: readonly DiscoveredSkill[]
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */
