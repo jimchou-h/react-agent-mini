@@ -1,4 +1,5 @@
 import type { ToolUseContext, Tools } from '../Tool.js'
+import type { DiscoveredSkill } from '../skills/discover.js'
 import { getTools } from '../tools/index.js'
 
 /**
@@ -6,6 +7,9 @@ import { getTools } from '../tools/index.js'
  *
  * @param tools - 可选自定义工具列表；缺省使用 getTools() 默认注册表
  */
-export function createMinimalToolContext(tools?: Tools): ToolUseContext {
-  return { tools: tools ?? getTools() }
+export function createMinimalToolContext(
+  tools?: Tools,
+  skills?: readonly DiscoveredSkill[],
+): ToolUseContext {
+  return { tools: tools ?? getTools(), skills }
 }

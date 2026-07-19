@@ -11,8 +11,8 @@
 
 ## 3. 与 system prompt 集成
 
-- [ ] 3.1 将可用 skills 摘要追加到 `loadProjectContext` 结果或独立 `buildSystemPrompt()`
-- [ ] 3.2 CLI / QueryEngine 使用合并后的 system prompt
+- [x] 3.1 将可用 skills 摘要追加到 `loadProjectContext` 结果或独立 `buildSystemPrompt()`
+- [x] 3.2 CLI / QueryEngine 使用合并后的 system prompt
 
 ## 4. 文档与验收
 

@@ -7,10 +7,11 @@
 
 import { query } from '../query.js'
 import { QueryEngine } from '../QueryEngine.js'
+import type { DiscoveredSkill } from '../skills/discover.js'
+import { loadSessionContext } from '../skills/systemPrompt.js'
 import { getTools } from '../tools/index.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createUserMessage } from '../utils/messages.js'
-import { loadProjectContext } from '../utils/projectContext.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 import { runRepl } from './repl.js'
 import {
@@ -52,9 +53,10 @@ function ensureAuth(argv: string[]): void {
 async function runHeadless(
   prompt: string,
   systemPrompt?: string,
+  skills?: readonly DiscoveredSkill[],
 ): Promise<void> {
   const tools = getTools()
-  const context = createMinimalToolContext(tools)
+  const context = createMinimalToolContext(tools, skills)
   const messages = [createUserMessage(prompt)]
   await consumeQueryStream(
     query({ messages, tools, toolUseContext: context, systemPrompt }),
@@ -73,7 +75,7 @@ async function main(): Promise<void> {
   traceCliStart(mode)
 
   try {
-    const systemPrompt = await loadProjectContext()
+    const { systemPrompt, skills } = await loadSessionContext()
 
     if (mode === 'pipe') {
       const prompt = await readStdin()
@@ -81,7 +83,7 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt, systemPrompt)
+      await runHeadless(prompt, systemPrompt, skills)
       return
     }
 
@@ -91,7 +93,7 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt, systemPrompt)
+      await runHeadless(prompt, systemPrompt, skills)
       return
     }
 
@@ -99,7 +101,7 @@ async function main(): Promise<void> {
     const tools = getTools()
     const engine = new QueryEngine({
       tools,
-      toolUseContext: createMinimalToolContext(tools),
+      toolUseContext: createMinimalToolContext(tools, skills),
       systemPrompt,
     })
     await runRepl(engine)
