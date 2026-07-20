@@ -10,7 +10,7 @@
 | 可学习 | 核心循环 ~150 行，中文注释 |
 | 可扩展 | 模块边界与 claude-code 同构，换 Provider / 加工具不改 `query.ts` |
 
-**刻意不做**：Ink UI、权限弹窗、会话持久化、MCP、compact、并发工具。
+**刻意不做**：Ink UI、权限弹窗（REPL 用 stdin y/n）、会话持久化、MCP、compact、并发工具。
 
 ## ReAct 主循环
 
@@ -54,15 +54,17 @@ src/
 ├── skills/
 │   ├── discover.ts            # 扫描并解析 SKILL.md
 │   └── systemPrompt.ts        # 会话快照 + 可用 Skills 摘要
-├── Tool.ts                    # Tool 契约、ToolUseContext
-├── tools/                     # Echo、Read、Grep、Glob、Skill + getTools()
+├── Tool.ts                    # Tool 契约、ToolUseContext、CanUseTool
+├── permissions/
+│   └── canUseTool.ts          # REPL y/n 与 headless ALLOW_WRITE 策略
+├── tools/                     # Echo、Read、Grep、Glob、Skill、Write + getTools()
 ├── services/
 │   ├── api/
 │   │   ├── client.ts          # callModel 入口
 │   │   ├── mock.ts            # QUERY_MOCK 假模型
 │   │   └── openai/            # DeepSeek 适配层
 │   └── tools/
-│       ├── execution.ts       # 单工具 runToolUse
+│       ├── execution.ts       # 单工具 runToolUse（可注入 canUseTool）
 │       └── orchestration.ts   # 串行 runTools
 ├── types/message.ts
 └── utils/
@@ -75,8 +77,16 @@ src/
 
 1. **出站**：可选 `systemPrompt` + `messages` + `tools` → `adapter.ts` 转为 OpenAI Chat Completions（system 在 messages 首位）
 2. **入站**：`stream.ts` 解析流 → `text_delta` + `assistant`（含 `tool_use`）
-3. **执行**：`runToolUse` 校验 input（Zod）→ `tool.call()` → `tool_result`
+3. **执行**：`runToolUse` 校验 input（Zod）→ `canUseTool` → `tool.call()` → `tool_result`
 4. **回环**：`appendTurnMessages` 把 assistant + tool_results 追加进 `messages`
+
+### 权限策略（v2）
+
+| 模式 | 只读工具 | Write |
+|------|----------|-------|
+| 未注入 `canUseTool` | auto-allow | auto-allow（仅测试默认） |
+| REPL | allow | stderr/stdin 询问 `y/N` |
+| headless / pipe | allow | deny，除非 `ALLOW_WRITE=1` |
 
 内部消息统一为 **Anthropic 形态**（`tool_use` / `tool_result`），与 claude-code 一致；DeepSeek 差异由 `services/api/openai/` 吸收。
 
@@ -151,7 +161,8 @@ Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
 | `query.ts` | `src/query.ts` | compact、hooks、流式工具、权限回调 |
 | `query/deps.ts` | `src/query/deps.ts` | 更多 IO 依赖 |
 | `Tool.ts` | `src/Tool.ts` | 完整 `canUseTool`、MCP 工具 |
-| `tools/*` | `packages/builtin-tools/` | Bash、Write、Grep、Agent… |
+| `tools/*` | `packages/builtin-tools/` | Bash、Agent…（Write 已在本仓库） |
+| `permissions/canUseTool.ts` | `canUseTool` 钩子 / 权限 UI | 规则引擎、always-allow、Ink 弹窗 |
 | `skills/*` + `SkillTool` | Skill 系统 | 插件源、fork Agent、Skill 内 MCP |
 | `services/api/openai/` | `src/services/api/openai/` | thinking mode、多模型映射 |
 | `QueryEngine.ts` | `src/QueryEngine.ts` | compact、file history、attribution |
@@ -161,7 +172,7 @@ Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
 
 建议扩展顺序：
 
-1. **权限流水线** — 替换 `autoAllowCanUseTool`
+1. **规则化权限 / always-allow** — 在现有 `canUseTool` 钩子上扩展
 2. **compact** — 长对话截断
 3. **Ink REPL** — 替换 readline
 4. **MCP / Agent 子任务** — 对齐 claude-code 工具注册表

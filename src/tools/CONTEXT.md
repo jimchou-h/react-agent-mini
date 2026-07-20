@@ -8,7 +8,7 @@
 |------|------|------|
 | **Tool** | tool definition | `name`、`description`、`inputSchema`（Zod）、`call()` |
 | **Tools** | tools registry | `readonly Tool[]`，由 `getTools()` 提供 |
-| **ToolUseContext** | tool context | `tools` 列表 + 可选会话 `skills` 快照；后续可扩展权限、MCP |
+| **ToolUseContext** | tool context | `tools` 列表 + 可选 `skills` + 可选 `canUseTool` |
 | **ToolResult** | tool result | `{ data }`，由 `runToolUse` 序列化为 `tool_result.content` |
 | **tool_use** | tool use block | 模型请求调用工具；`AssistantMessage` 中的块类型 |
 | **tool_result** | tool result block | 工具执行结果；`UserMessage` 中的块类型 |
@@ -19,7 +19,10 @@
 |------|------|
 | **runToolUse** | 单工具：查找 → Zod 校验 → `canUseTool` → `call()` → 构造 `tool_result` |
 | **runTools** | 串行调度多个 `tool_use`（v0 无并发分区） |
-| **autoAllowCanUseTool** | v0 权限策略：恒 `{ behavior: 'allow' }` |
+| **CanUseTool** | 权限回调：`(tool, input, context) => allow \| deny` |
+| **autoAllowCanUseTool** | 缺省策略：恒 `{ behavior: 'allow' }` |
+| **createReplCanUseTool** | REPL：非只读工具经 `ask` 确认 `y/yes` |
+| **createHeadlessCanUseTool** | headless/pipe：写工具默认 deny，`ALLOW_WRITE=1` 放行 |
 | **findToolByName** | 按 `tool_use.name` 查找工具定义 |
 
 ## 内置工具
@@ -31,6 +34,7 @@
 | **Grep** | 是 | cwd 内正则搜内容；`head_limit` 默认 50 |
 | **Glob** | 是 | cwd 内 glob 列文件；最多 100 条 |
 | **Skill** | 是 | 按名称返回已发现 SKILL.md 正文；未知名称返回错误 |
+| **Write** | 否 | 覆盖写入 cwd 内文件；内容 ≤100KB；父目录须已存在 |
 
 ### Read 专用术语
 
@@ -39,6 +43,13 @@
 | **MAX_READ_BYTES** | 100 × 1024，超出返回工具错误 |
 | **resolvePathUnderCwd** | 解析路径并拒绝逃出 `cwd` 的穿越访问 |
 | **offset / limit** | 1-based 起始行与行数；输出 `LINE|content` |
+
+### Write 专用术语
+
+| 术语 | 说明 |
+|------|------|
+| **MAX_WRITE_BYTES** | 100 × 1024，超出返回工具错误 |
+| **覆盖写** | 不自动 `mkdir`；父目录必须存在 |
 
 ### Grep / Glob 术语
 
@@ -60,6 +71,6 @@
 1. 在 `src/tools/XxxTool.ts` 实现 `Tool` 契约
 2. 注册到 `getTools()`
 3. 补充单元测试与 `CONTEXT.md` 表格一行
-4. 写操作工具接入前需替换 `autoAllowCanUseTool`
+4. 非只读工具依赖 CLI 注入的 `canUseTool`（REPL 确认 / headless `ALLOW_WRITE`）
 
 对齐 claude-code：`packages/builtin-tools/src/tools/` 下 60+ 工具，接口形状与本仓库 `Tool.ts` 兼容。

@@ -94,24 +94,54 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
   }
 }
 
-/**
- * 绑定 node:readline 的 REPL 入口
- */
-export async function runRepl(engine: QueryEngine): Promise<void> {
-  const readline = await import('node:readline/promises')
-  const { stdin: input, stdout: output } = await import('node:process')
-  const rl = readline.createInterface({ input, output, prompt: '> ' })
+type ReadlineInterface = {
+  question: (query: string) => Promise<string>
+  close: () => void
+}
 
-  async function* readLines(): AsyncGenerator<string> {
-    rl.prompt()
-    for await (const line of rl) {
-      yield line
-      rl.prompt()
+/**
+ * 用 rl.question 驱动行迭代，便于与权限确认共用同一 Interface
+ */
+export async function* linesFromReadlineQuestions(
+  rl: ReadlineInterface,
+  prompt = '> ',
+): AsyncGenerator<string> {
+  while (true) {
+    try {
+      yield await rl.question(prompt)
+    } catch {
+      break
     }
   }
+}
+
+/**
+ * 绑定 node:readline 的 REPL 入口
+ *
+ * @param engine - 会话引擎
+ * @param existingRl - 可选：由 CLI 创建并注入 ask 的同一 readline，避免双开冲突
+ */
+export async function runRepl(
+  engine: QueryEngine,
+  existingRl?: import('node:readline/promises').Interface,
+): Promise<void> {
+  if (existingRl) {
+    await runReplSession({
+      engine,
+      lines: linesFromReadlineQuestions(existingRl),
+    })
+    return
+  }
+
+  const readline = await import('node:readline/promises')
+  const { stdin: input, stdout: output } = await import('node:process')
+  const rl = readline.createInterface({ input, output })
 
   try {
-    await runReplSession({ engine, lines: readLines() })
+    await runReplSession({
+      engine,
+      lines: linesFromReadlineQuestions(rl),
+    })
   } finally {
     rl.close()
   }

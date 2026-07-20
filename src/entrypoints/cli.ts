@@ -11,6 +11,7 @@ import type { DiscoveredSkill } from '../skills/discover.js'
 import { loadSessionContext } from '../skills/systemPrompt.js'
 import { getTools } from '../tools/index.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
+import { createHeadlessCanUseTool, createReplCanUseTool } from '../permissions/canUseTool.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 import { runRepl } from './repl.js'
@@ -56,7 +57,10 @@ async function runHeadless(
   skills?: readonly DiscoveredSkill[],
 ): Promise<void> {
   const tools = getTools()
-  const context = createMinimalToolContext(tools, skills)
+  const context = {
+    ...createMinimalToolContext(tools, skills),
+    canUseTool: createHeadlessCanUseTool(),
+  }
   const messages = [createUserMessage(prompt)]
   await consumeQueryStream(
     query({ messages, tools, toolUseContext: context, systemPrompt }),
@@ -97,14 +101,25 @@ async function main(): Promise<void> {
       return
     }
 
-    // REPL
+    // REPL — 单一 readline，权限确认与提示符共用
     const tools = getTools()
+    const readline = await import('node:readline/promises')
+    const { stdin: input, stdout: output } = await import('node:process')
+    const rl = readline.createInterface({ input, output })
+    const ask = async (prompt: string): Promise<string> => rl.question(prompt)
     const engine = new QueryEngine({
       tools,
-      toolUseContext: createMinimalToolContext(tools, skills),
+      toolUseContext: {
+        ...createMinimalToolContext(tools, skills),
+        canUseTool: createReplCanUseTool(ask),
+      },
       systemPrompt,
     })
-    await runRepl(engine)
+    try {
+      await runRepl(engine, rl)
+    } finally {
+      rl.close()
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`错误: ${msg}`)

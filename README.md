@@ -19,6 +19,14 @@ bun install
 | `OPENAI_MODEL` | 否 | `deepseek-chat` | 模型名称 |
 | `QUERY_MOCK` | 否 | — | 设为 `1` 使用内置 mock（无需 Key） |
 | `TRACE` | 否 | — | 设为 `1` 向 stderr 打印 `[trace]` 全链路日志 |
+| `ALLOW_WRITE` | 否 | — | 设为 `1` 时 headless/pipe 允许 `Write`；默认拒绝写操作 |
+
+### Write 权限（简要）
+
+| 模式 | 行为 |
+|------|------|
+| REPL | 写入前询问 `y/N` |
+| headless / pipe | 默认拒绝；`$env:ALLOW_WRITE="1"` 后允许 |
 
 PowerShell 设置示例：
 
