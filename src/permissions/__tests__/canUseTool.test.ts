@@ -126,5 +126,23 @@ describe('createReplCanUseTool', () => {
       { tools: [] },
     )
     expect(result.behavior).toBe('deny')
+    if (result.behavior === 'deny') {
+      expect(result.message).toContain('请勿再次调用 Write')
+    }
+  })
+
+  test('does not re-ask after user denied the same path', async () => {
+    let askCount = 0
+    const canUse = createReplCanUseTool(async () => {
+      askCount += 1
+      return 'n'
+    })
+    const tool = createWriteLikeTool()
+    const input = { path: 'out.txt', content: 'hi' }
+
+    await canUse(tool, input, { tools: [] })
+    await canUse(tool, input, { tools: [] })
+
+    expect(askCount).toBe(1)
   })
 })
