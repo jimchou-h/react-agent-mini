@@ -25,9 +25,9 @@ function isErrorResult(message: UserMessage): boolean {
  * 执行单个 tool_use 块 — 对齐 claude-code runToolUse
  *
  * 完整流水线：
- * 1. autoAllowCanUseTool() 权限检查（v0 恒 allow）
- * 2. findToolByName 查找工具定义
- * 3. inputSchema.safeParse 校验模型传入的 JSON
+ * 1. findToolByName 查找工具定义
+ * 2. inputSchema.safeParse 校验模型传入的 JSON
+ * 3. canUseTool 权限检查（缺省 auto-allow）
  * 4. tool.call() 执行业务逻辑
  * 5. 将结果或错误包装为 createToolResultMessage
  *
@@ -51,17 +51,6 @@ export async function runToolUse(
     return update
   }
 
-  const permission = await autoAllowCanUseTool()
-  if (permission.behavior === 'deny') {
-    return finish({
-      message: createToolResultMessage(
-        block.id,
-        permission.message,
-        true,
-      ),
-    })
-  }
-
   const tool = findToolByName(context.tools, block.name)
   if (!tool || !tool.isEnabled()) {
     return finish({
@@ -79,6 +68,18 @@ export async function runToolUse(
       message: createToolResultMessage(
         block.id,
         `工具参数无效: ${parsed.error.message}`,
+        true,
+      ),
+    })
+  }
+
+  const checkPermission = context.canUseTool ?? autoAllowCanUseTool
+  const permission = await checkPermission(tool, parsed.data, context)
+  if (permission.behavior === 'deny') {
+    return finish({
+      message: createToolResultMessage(
+        block.id,
+        permission.message,
         true,
       ),
     })

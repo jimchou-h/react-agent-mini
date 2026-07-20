@@ -2,6 +2,19 @@ import type { z } from 'zod'
 import type { AssistantMessage } from './types/message.js'
 import type { DiscoveredSkill } from './skills/discover.js'
 
+export type CanUseToolResult =
+  | { behavior: 'allow' }
+  | { behavior: 'deny'; message: string }
+
+/**
+ * 权限决策回调 — 对齐 claude-code canUseTool 钩子
+ */
+export type CanUseTool = (
+  tool: Tool,
+  input: unknown,
+  context: ToolUseContext,
+) => Promise<CanUseToolResult>
+
 /**
  * 工具执行上下文（精简版 ToolUseContext）
  *
@@ -13,6 +26,8 @@ export type ToolUseContext = {
   tools: Tools
   /** 进程启动时发现的 skills 快照 */
   skills?: readonly DiscoveredSkill[]
+  /** 可选权限回调；缺省为 autoAllowCanUseTool */
+  canUseTool?: CanUseTool
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */
@@ -75,20 +90,11 @@ export function findToolByName(tools: Tools, name: string): Tool | undefined {
 }
 
 /**
- * 权限检查结果
- *
- * v0 仅使用 allow；deny 分支已预留，对接 claude-code canUseTool 时使用。
- */
-export type CanUseToolResult =
-  | { behavior: 'allow' }
-  | { behavior: 'deny'; message: string }
-
-/**
  * v0 权限策略：恒允许所有工具执行
  *
  * 不弹出确认框，不阻塞。Read/Bash 等敏感工具在后续 issue 接入真实权限流水线。
  */
-export async function autoAllowCanUseTool(): Promise<CanUseToolResult> {
+export const autoAllowCanUseTool: CanUseTool = async () => {
   return { behavior: 'allow' }
 }
 
