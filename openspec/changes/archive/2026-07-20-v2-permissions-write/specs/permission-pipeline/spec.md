@@ -26,7 +26,7 @@
 #### Scenario: REPL 用户拒绝
 
 - **WHEN** 模型调用 Write 且用户输入 `n`
-- **THEN** 返回 deny 的错误 `tool_result`，文件不变更
+- **THEN** 返回 deny 的错误 `tool_result`，文件不变更，并 abort 本轮 query（不再回调模型）
 
 #### Scenario: headless 默认拒绝 Write
 
