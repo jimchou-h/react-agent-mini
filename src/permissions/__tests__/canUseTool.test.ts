@@ -4,6 +4,7 @@ import type { Tool } from '../../Tool.js'
 import {
   createHeadlessCanUseTool,
   createReplCanUseTool,
+  USER_REJECT_MESSAGE,
 } from '../canUseTool.js'
 
 const writeLikeSchema = z.object({
@@ -118,31 +119,18 @@ describe('createReplCanUseTool', () => {
     expect(prompts[0]).toContain('2 字节')
   })
 
-  test('denies write when user answers n', async () => {
+  test('denies write and aborts the turn when user answers n', async () => {
+    const abortController = new AbortController()
     const canUse = createReplCanUseTool(async () => 'n')
     const result = await canUse(
       createWriteLikeTool(),
       { path: 'out.txt', content: 'hi' },
-      { tools: [] },
+      { tools: [], abortController },
     )
-    expect(result.behavior).toBe('deny')
-    if (result.behavior === 'deny') {
-      expect(result.message).toContain('请勿再次调用 Write')
-    }
-  })
-
-  test('does not re-ask after user denied the same path', async () => {
-    let askCount = 0
-    const canUse = createReplCanUseTool(async () => {
-      askCount += 1
-      return 'n'
+    expect(result).toEqual({
+      behavior: 'deny',
+      message: USER_REJECT_MESSAGE,
     })
-    const tool = createWriteLikeTool()
-    const input = { path: 'out.txt', content: 'hi' }
-
-    await canUse(tool, input, { tools: [] })
-    await canUse(tool, input, { tools: [] })
-
-    expect(askCount).toBe(1)
+    expect(abortController.signal.aborted).toBe(true)
   })
 })

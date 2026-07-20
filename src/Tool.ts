@@ -18,8 +18,7 @@ export type CanUseTool = (
 /**
  * 工具执行上下文（精简版 ToolUseContext）
  *
- * 对齐 claude-code-best 的 ToolUseContext，v0 仅保留 tools 列表。
- * 后续 issue 可扩展：权限模式、MCP 连接、readFileState、abortController 等。
+ * 对齐 claude-code-best 的 ToolUseContext；含可选 skills、canUseTool、abortController。
  */
 export type ToolUseContext = {
   /** 当前会话可用的工具注册表 */
@@ -28,6 +27,8 @@ export type ToolUseContext = {
   skills?: readonly DiscoveredSkill[]
   /** 可选权限回调；缺省为 autoAllowCanUseTool */
   canUseTool?: CanUseTool
+  /** 本轮 query 的中止控制器；用户拒绝写操作时 abort，结束本轮 */
+  abortController?: AbortController
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */

@@ -136,6 +136,12 @@ async function* queryLoop(
       }
     }
 
+    // 用户拒绝权限等：中止本轮，不再回调模型（对齐 claude-code abort）
+    if (params.toolUseContext.abortController?.signal.aborted) {
+      trace('query.turn_end', { reason: 'aborted', turn: turnCount })
+      return { reason: 'aborted' }
+    }
+
     // —— 阶段 4：轮次上限检查 ——
     const nextTurnCount = turnCount + 1
     if (nextTurnCount > maxTurns) {

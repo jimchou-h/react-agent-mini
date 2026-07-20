@@ -7,9 +7,10 @@
 | 术语 | 说明 |
 |------|------|
 | **CanUseTool** | `(tool, input, context) => Promise<allow \| deny>` |
-| **createReplCanUseTool(ask)** | 交互确认；只读直接 allow；同 path 拒绝后会话内不再追问 |
+| **createReplCanUseTool(ask)** | 交互确认；用户 `n` 时 deny 并 abort 本轮 |
 | **createHeadlessCanUseTool()** | 非交互；写操作需 `ALLOW_WRITE=1` |
 | **ALLOW_WRITE** | 环境变量，设为 `1` 时 headless/pipe 允许 Write |
+| **abortController** | 每轮 `runTurn` 新建；拒绝写操作时 abort → `Terminal.aborted` |
 
 ## 接线
 

@@ -27,6 +27,9 @@ export async function* runTools(
   context: ToolUseContext,
 ): AsyncGenerator<ToolOrchestrationUpdate, void> {
   for (const block of toolUseBlocks) {
+    if (context.abortController?.signal.aborted) {
+      break
+    }
     const { message } = await runToolUse(block, parentMessage, context)
     yield { message }
   }

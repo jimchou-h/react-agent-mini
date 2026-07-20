@@ -23,25 +23,22 @@ export function createHeadlessCanUseTool(): CanUseTool {
 
 export type AskFn = (prompt: string) => Promise<string>
 
-const USER_DENY_MESSAGE =
-  '用户拒绝了写操作。请勿再次调用 Write，直接用文字向用户说明即可。'
+/**
+ * 用户拒绝写操作时的 tool_result 文案 — 对齐 claude-code REJECT_MESSAGE 语义
+ */
+export const USER_REJECT_MESSAGE =
+  '用户拒绝了该工具调用（例如文件未被写入）。请停止当前操作，等待用户下一步指示。'
 
 /**
  * REPL 权限策略：只读允许；写工具经 ask 确认（y/yes → allow）
  *
- * 同一会话内对同一 tool+path 拒绝后不再追问，避免模型重试时反复弹 y/N。
+ * 用户输入 n 时 deny，并 abort 本轮 AbortController，使 query 循环结束
+ *（对齐 claude-code PermissionContext.cancelAndAbort）。
  */
 export function createReplCanUseTool(ask: AskFn): CanUseTool {
-  const deniedKeys = new Set<string>()
-
-  return async (tool, input, _context: ToolUseContext) => {
+  return async (tool, input, context: ToolUseContext) => {
     if (tool.isReadOnly(input)) {
       return { behavior: 'allow' }
-    }
-
-    const key = denyKey(tool, input)
-    if (deniedKeys.has(key)) {
-      return { behavior: 'deny', message: USER_DENY_MESSAGE }
     }
 
     const summary = formatWriteSummary(tool, input)
@@ -50,18 +47,9 @@ export function createReplCanUseTool(ask: AskFn): CanUseTool {
       return { behavior: 'allow' }
     }
 
-    deniedKeys.add(key)
-    return { behavior: 'deny', message: USER_DENY_MESSAGE }
+    context.abortController?.abort('user_reject')
+    return { behavior: 'deny', message: USER_REJECT_MESSAGE }
   }
-}
-
-function denyKey(tool: Tool, input: unknown): string {
-  const record =
-    input && typeof input === 'object'
-      ? (input as Record<string, unknown>)
-      : {}
-  const path = typeof record.path === 'string' ? record.path : ''
-  return `${tool.name}:${path}`
 }
 
 function formatWriteSummary(tool: Tool, input: unknown): string {

@@ -85,7 +85,7 @@ src/
 | 模式 | 只读工具 | Write |
 |------|----------|-------|
 | 未注入 `canUseTool` | auto-allow | auto-allow（仅测试默认） |
-| REPL | allow | stderr/stdin 询问 `y/N` |
+| REPL | allow | stdin 询问 `y/N`；`n` 则 abort 本轮 |
 | headless / pipe | allow | deny，除非 `ALLOW_WRITE=1` |
 
 内部消息统一为 **Anthropic 形态**（`tool_use` / `tool_result`），与 claude-code 一致；DeepSeek 差异由 `services/api/openai/` 吸收。

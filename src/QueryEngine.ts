@@ -46,10 +46,17 @@ export class QueryEngine {
   async *runTurn(userText: string): AsyncGenerator<QueryYield, Terminal> {
     this.#messages.push(createUserMessage(userText))
 
+    // 每轮独立 AbortController：用户拒绝写操作只结束本轮，不影响后续 REPL 输入
+    const abortController = new AbortController()
+    const toolUseContext: ToolUseContext = {
+      ...this.#toolUseContext,
+      abortController,
+    }
+
     const gen = query({
       messages: this.#messages,
       tools: this.#tools,
-      toolUseContext: this.#toolUseContext,
+      toolUseContext,
       maxTurns: this.#maxTurns,
       deps: this.#deps,
       systemPrompt: this.#systemPrompt,

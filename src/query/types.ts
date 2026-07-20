@@ -12,6 +12,8 @@ export type Terminal =
   | { reason: 'completed' }
   /** 工具调用轮次超过 maxTurns 上限 */
   | { reason: 'max_turns'; turnCount: number }
+  /** 用户拒绝权限等导致本轮中止（对齐 claude-code abort） */
+  | { reason: 'aborted' }
 
 /**
  * query() 的入参

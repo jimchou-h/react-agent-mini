@@ -316,4 +316,51 @@ describe('query', () => {
       else process.env.TRACE = prev
     }
   })
+
+  test('returns aborted when abortController is aborted after tool deny', async () => {
+    async function* mockWriteOnce(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      yield createAssistantMessage([
+        {
+          type: 'tool_use',
+          id: 'toolu_write_abort',
+          name: 'Write',
+          input: { path: 'x.txt', content: 'nope' },
+        },
+      ])
+    }
+
+    const tools = getTools()
+    const abortController = new AbortController()
+    const { terminal, collected } = await drainQuery(
+      query({
+        messages: [createUserMessage('write')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          abortController,
+          canUseTool: async () => {
+            abortController.abort('user_reject')
+            return {
+              behavior: 'deny',
+              message: '用户拒绝了该工具调用',
+            }
+          },
+        },
+        deps: {
+          callModel: mockWriteOnce,
+          uuid: () => 'abort-uuid',
+        },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'aborted' })
+    const toolResults = collected.filter(
+      m =>
+        m.type === 'user' &&
+        m.content.some(b => b.type === 'tool_result' && b.is_error === true),
+    )
+    expect(toolResults.length).toBe(1)
+  })
 })
