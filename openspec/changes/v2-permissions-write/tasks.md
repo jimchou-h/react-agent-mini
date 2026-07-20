@@ -6,9 +6,9 @@
 
 ## 2. Write 工具
 
-- [ ] 2.1 实现 `WriteTool.ts`（路径校验、100KB、覆盖写）
-- [ ] 2.2 注册 `getTools()`；cliHelpers 状态行
-- [ ] 2.3 单元测试：成功、越界、过大
+- [x] 2.1 实现 `WriteTool.ts`（路径校验、100KB、覆盖写）
+- [x] 2.2 注册 `getTools()`；cliHelpers 状态行
+- [x] 2.3 单元测试：成功、越界、过大
 
 ## 3. CLI / REPL 接线
 
