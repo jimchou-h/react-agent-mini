@@ -1,6 +1,6 @@
 ## Purpose
 
-定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob 等只读工具的对外行为。
+定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Skill 等只读工具的对外行为。
 
 ## Requirements
 
@@ -73,3 +73,12 @@
 
 - **WHEN** 模型调用 `Read` 读取项目内文件
 - **THEN** 工具立即执行，不阻塞等待用户输入
+
+### Requirement: Skill 工具注册
+
+`getTools()` SHALL 包含 `Skill` 工具，且其 `isReadOnly` 为 true。
+
+#### Scenario: 工具表含 Skill
+
+- **WHEN** 调用 `getTools()`
+- **THEN** 返回列表中存在 `name === 'Skill'` 的工具
