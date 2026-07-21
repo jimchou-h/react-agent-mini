@@ -116,7 +116,8 @@ export function toolsToOpenAI(tools: Tools): ChatCompletionTool[] {
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: zodObjectToJsonSchema(tool.inputSchema),
+        parameters:
+          tool.inputJsonSchema ?? zodObjectToJsonSchema(tool.inputSchema),
       },
     }))
 }

@@ -58,9 +58,12 @@ function formatWriteSummary(tool: Tool, input: unknown): string {
       ? (input as Record<string, unknown>)
       : {}
   const path =
-    typeof record.path === 'string' ? record.path : '(unknown path)'
+    typeof record.path === 'string' ? record.path : undefined
   const content =
     typeof record.content === 'string' ? record.content : ''
   const bytes = Buffer.byteLength(content, 'utf-8')
-  return `允许 ${tool.name} 写入 ${path}（${bytes} 字节）？[y/N] `
+  if (path) {
+    return `允许 ${tool.name} 写入 ${path}（${bytes} 字节）？[y/N] `
+  }
+  return `允许调用非只读工具 ${tool.name}？[y/N] `
 }

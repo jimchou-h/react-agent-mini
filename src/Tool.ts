@@ -57,6 +57,10 @@ export type Tool<Input extends z.ZodType = z.ZodType> = {
   /** Zod schema，用于校验模型传入的 input JSON */
   inputSchema: Input
   /**
+   * 可选：直接用于 API 出站的 JSON Schema（MCP 工具优先使用，跳过 Zod 转换）
+   */
+  inputJsonSchema?: Record<string, unknown>
+  /**
    * 执行工具逻辑
    * @param args - 经 inputSchema 校验后的参数
    * @param context - 工具执行上下文（可访问其他工具、会话状态等）

@@ -19,7 +19,8 @@ bun install
 | `OPENAI_MODEL` | 否 | `deepseek-chat` | 模型名称 |
 | `QUERY_MOCK` | 否 | — | 设为 `1` 使用内置 mock（无需 Key） |
 | `TRACE` | 否 | — | 设为 `1` 向 stderr 打印 `[trace]` 全链路日志 |
-| `ALLOW_WRITE` | 否 | — | 设为 `1` 时 headless/pipe 允许 `Write`；默认拒绝写操作 |
+| `ALLOW_WRITE` | 否 | — | 设为 `1` 时 headless/pipe 允许写类工具（含非只读 MCP）；默认拒绝 |
+| `MCP_CONFIG` | 否 | `<cwd>/.mcp.json` | MCP 配置文件路径 |
 
 ### Write 权限（简要）
 
@@ -90,6 +91,28 @@ REPL 内可用：
 Skill({ "skill": "echo-demo" })
 ```
 
+### MCP（stdio 外部工具）
+
+项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径）即可在启动时连接 stdio MCP server，工具以 `mcp__<server>__<tool>` 名称合并进会话：
+
+```json
+{
+  "mcpServers": {
+    "demo": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"]
+    }
+  }
+}
+```
+
+| 规则 | 行为 |
+|------|------|
+| 无配置文件 | 跳过 MCP，仅内置工具（与 v2 一致） |
+| 某 server 连接失败 | stderr 警告并跳过该 server |
+| 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL y/n；headless 需 `ALLOW_WRITE=1`） |
+| 限制 | 仅 stdio；不支持 SSE/HTTP、OAuth、resources/prompts |
+
 ### Mock 单次问答（无需 API Key）
 
 ```powershell
@@ -138,15 +161,15 @@ echo "用 Echo 回复 hello" | bun run dev:mock -p
 ## 架构速览
 
 ```
-用户 → cli.ts → loadSessionContext()
-                    ├─ project context
-                    └─ skills 摘要 + skills 快照
+用户 → cli.ts → loadSessionContext() + loadMcpTools()
+                    ├─ project context / skills
+                    └─ MCP tools（可选）
                       ↓
               QueryEngine.runTurn / query()
                       ↓
                  callModel (DeepSeek / mock)
                       ↓
-                 tool_use? → runTools
+                 tool_use? → runTools（builtin + mcp__*）
                       ↓
                  text → stdout；工具状态 → stderr
 ```

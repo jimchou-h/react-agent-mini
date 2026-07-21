@@ -10,7 +10,7 @@
 | 可学习 | 核心循环 ~150 行，中文注释 |
 | 可扩展 | 模块边界与 claude-code 同构，换 Provider / 加工具不改 `query.ts` |
 
-**刻意不做**：Ink UI、权限弹窗（REPL 用 stdin y/n）、会话持久化、MCP、compact、并发工具。
+**刻意不做**：Ink UI、权限弹窗（REPL 用 stdin y/n）、会话持久化、SSE/HTTP MCP、compact、并发工具。
 
 ## ReAct 主循环
 
@@ -63,6 +63,11 @@ src/
 │   │   ├── client.ts          # callModel 入口
 │   │   ├── mock.ts            # QUERY_MOCK 假模型
 │   │   └── openai/            # DeepSeek 适配层
+│   ├── mcp/
+│   │   ├── config.ts          # .mcp.json 加载
+│   │   ├── adapter.ts         # MCP tool → Tool
+│   │   ├── client.ts          # stdio 连接与 listTools
+│   │   └── load.ts            # 启动合并 sessionTools
 │   └── tools/
 │       ├── execution.ts       # 单工具 runToolUse（可注入 canUseTool）
 │       └── orchestration.ts   # 串行 runTools
@@ -72,7 +77,6 @@ src/
     ├── projectContext.ts          # AGENTS.md / CLAUDE.md → systemPrompt
     └── trace.ts                   # TRACE=1 结构化调试日志
 ```
-
 ### 数据流（单次 tool 轮）
 
 1. **出站**：可选 `systemPrompt` + `messages` + `tools` → `adapter.ts` 转为 OpenAI Chat Completions（system 在 messages 首位）

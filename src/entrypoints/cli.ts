@@ -9,9 +9,10 @@ import { query } from '../query.js'
 import { QueryEngine } from '../QueryEngine.js'
 import type { DiscoveredSkill } from '../skills/discover.js'
 import { loadSessionContext } from '../skills/systemPrompt.js'
-import { getTools } from '../tools/index.js'
+import type { Tools } from '../Tool.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createHeadlessCanUseTool, createReplCanUseTool } from '../permissions/canUseTool.js'
+import { loadMcpTools, sessionTools } from '../services/mcp/load.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 import { runRepl } from './repl.js'
@@ -53,10 +54,10 @@ function ensureAuth(argv: string[]): void {
 
 async function runHeadless(
   prompt: string,
+  tools: Tools,
   systemPrompt?: string,
   skills?: readonly DiscoveredSkill[],
 ): Promise<void> {
-  const tools = getTools()
   const context = {
     ...createMinimalToolContext(tools, skills),
     canUseTool: createHeadlessCanUseTool(),
@@ -78,8 +79,15 @@ async function main(): Promise<void> {
   ensureAuth(argv)
   traceCliStart(mode)
 
+  let closeMcp: (() => Promise<void>) | undefined
+
   try {
-    const { systemPrompt, skills } = await loadSessionContext()
+    const [{ systemPrompt, skills }, mcp] = await Promise.all([
+      loadSessionContext(),
+      loadMcpTools(),
+    ])
+    closeMcp = mcp.close
+    const tools = sessionTools(mcp.tools)
 
     if (mode === 'pipe') {
       const prompt = await readStdin()
@@ -87,7 +95,7 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt, systemPrompt, skills)
+      await runHeadless(prompt, tools, systemPrompt, skills)
       return
     }
 
@@ -97,12 +105,11 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt, systemPrompt, skills)
+      await runHeadless(prompt, tools, systemPrompt, skills)
       return
     }
 
     // REPL — 单一 readline，权限确认与提示符共用
-    const tools = getTools()
     const readline = await import('node:readline/promises')
     const { stdin: input, stdout: output } = await import('node:process')
     const rl = readline.createInterface({ input, output })
@@ -124,6 +131,8 @@ async function main(): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`错误: ${msg}`)
     process.exit(1)
+  } finally {
+    await closeMcp?.()
   }
 }
 
