@@ -21,6 +21,7 @@ bun install
 | `TRACE` | 否 | — | 设为 `1` 向 stderr 打印 `[trace]` 全链路日志 |
 | `ALLOW_WRITE` | 否 | — | 设为 `1` 时 headless/pipe 允许写类工具（含非只读 MCP）；默认拒绝 |
 | `MCP_CONFIG` | 否 | `<cwd>/.mcp.json` | MCP 配置路径；逗号分隔可合并多文件（后者覆盖同名 server） |
+| `COMPACT` | 否 | 开启 | 设为 `0` 关闭出站消息裁剪（compact） |
 
 ### Write 权限（简要）
 

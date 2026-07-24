@@ -63,6 +63,8 @@ src/
 │   │   ├── client.ts          # callModel 入口
 │   │   ├── mock.ts            # QUERY_MOCK 假模型
 │   │   └── openai/            # DeepSeek 适配层
+│   ├── compact/
+│   │   └── compact.ts         # 出站消息裁剪（tool_result 截断 + maxMessages 保尾）
 │   ├── mcp/
 │   │   ├── config.ts          # .mcp.json 加载
 │   │   ├── adapter.ts         # MCP tool → Tool
@@ -79,7 +81,7 @@ src/
 ```
 ### 数据流（单次 tool 轮）
 
-1. **出站**：可选 `systemPrompt` + `messages` + `tools` → `adapter.ts` 转为 OpenAI Chat Completions（system 在 messages 首位）
+1. **出站**：`compactMessages` 生成裁剪副本（会话内存不变）→ 可选 `systemPrompt` + 出站 `messages` + `tools` → `adapter.ts` 转为 OpenAI Chat Completions（system 在 messages 首位）
 2. **入站**：`stream.ts` 解析流 → `text_delta` + `assistant`（含 `tool_use`）
 3. **执行**：`runToolUse` 校验 input（Zod）→ `canUseTool` → `tool.call()` → `tool_result`
 4. **回环**：`appendTurnMessages` 把 assistant + tool_results 追加进 `messages`
@@ -93,6 +95,15 @@ src/
 | headless / pipe | allow | deny，除非 `ALLOW_WRITE=1` |
 
 内部消息统一为 **Anthropic 形态**（`tool_use` / `tool_result`），与 claude-code 一致；DeepSeek 差异由 `services/api/openai/` 吸收。
+
+## Context Budget（compact，v3）
+
+每轮 `callModel` 前对**出站副本**应用确定性裁剪（无 LLM 摘要）：
+
+1. 超长 `tool_result.content` 截断到 `maxToolResultChars`（默认 4000 字符）并附截断提示
+2. 消息条数超过 `maxMessages`（默认 40）时丢弃最早轮次；裁剪边界对齐 user 纯文本消息，保证 `tool_use`/`tool_result` 配对完整
+
+会话内存（`QueryEngine.messages`）不受影响（出站-only）。`COMPACT=0` 关闭；`TRACE=1` 且发生实质裁剪时输出 `[trace] compact.run`。限制：不做 LLM 摘要、token 精确计数与按工具类型 budget（见 v4 方向）。
 
 ## 项目上下文（systemPrompt）
 

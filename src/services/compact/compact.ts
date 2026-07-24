@@ -6,6 +6,8 @@ export const TRUNCATION_NOTE = '\n…[tool_result 已截断（compact）]'
 
 /** compact 策略配置；缺省值见模块内 DEFAULT_* 常量 */
 export type CompactOptions = {
+  /** 是否启用；缺省读环境变量 `COMPACT`（`0` 关闭，其余开启） */
+  enabled?: boolean
   /** 单条 tool_result.content 字符上限，超出则截断 */
   maxToolResultChars?: number
   /** 出站消息条数上限，超出则丢弃最早轮次保留尾部 */
@@ -26,6 +28,9 @@ export function compactMessages(
   messages: Message[],
   options?: CompactOptions,
 ): Message[] {
+  const enabled = options?.enabled ?? process.env.COMPACT !== '0'
+  if (!enabled) return messages
+
   const maxToolResultChars =
     options?.maxToolResultChars ?? DEFAULT_MAX_TOOL_RESULT_CHARS
   const maxMessages = options?.maxMessages ?? DEFAULT_MAX_MESSAGES

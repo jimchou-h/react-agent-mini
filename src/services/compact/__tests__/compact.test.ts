@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import type { Message } from '../../../types/message.js'
 import { compactMessages, TRUNCATION_NOTE } from '../compact.js'
 import {
@@ -161,5 +161,78 @@ describe('compactMessages maxMessages tail retention', () => {
     if (block.type !== 'tool_result') throw new Error('expected tool_result')
     expect(block.content).toContain(TRUNCATION_NOTE)
     expect(block.content.length).toBeLessThan(1000)
+  })
+})
+
+describe('compactMessages disable switch', () => {
+  const prevCompact = process.env.COMPACT
+
+  afterEach(() => {
+    if (prevCompact === undefined) delete process.env.COMPACT
+    else process.env.COMPACT = prevCompact
+  })
+
+  test('enabled: false returns messages untouched', () => {
+    const messages: Message[] = [
+      createUserMessage('q'),
+      ...toolTurn('toolu_off', 'x'.repeat(9000)),
+    ]
+    const out = compactMessages(messages, {
+      enabled: false,
+      maxToolResultChars: 100,
+      maxMessages: 1,
+    })
+    expect(out).toBe(messages)
+  })
+
+  test('COMPACT=0 env disables compaction by default', () => {
+    process.env.COMPACT = '0'
+    const messages: Message[] = [
+      createUserMessage('q'),
+      ...toolTurn('toolu_env', 'x'.repeat(9000)),
+    ]
+    const out = compactMessages(messages, { maxToolResultChars: 100 })
+    expect(out).toBe(messages)
+  })
+})
+
+describe('compactMessages TRACE', () => {
+  const prevTrace = process.env.TRACE
+  const originalError = console.error
+
+  afterEach(() => {
+    if (prevTrace === undefined) delete process.env.TRACE
+    else process.env.TRACE = prevTrace
+    console.error = originalError
+  })
+
+  test('emits [trace] compact.run when real compaction happens', () => {
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    console.error = (...args: unknown[]) => {
+      lines.push(args.join(' '))
+    }
+
+    const messages: Message[] = [
+      createUserMessage('q'),
+      ...toolTurn('toolu_t', 'x'.repeat(9000)),
+    ]
+    compactMessages(messages, { maxToolResultChars: 100 })
+
+    const traceLine = lines.find(l => l.includes('compact.run'))
+    expect(traceLine).toBeDefined()
+    expect(traceLine).toContain('[trace]')
+    expect(traceLine).toContain('truncatedBlocks=1')
+  })
+
+  test('emits nothing when no compaction occurs', () => {
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    console.error = (...args: unknown[]) => {
+      lines.push(args.join(' '))
+    }
+
+    compactMessages([createUserMessage('hi')], {})
+    expect(lines.some(l => l.includes('compact.run'))).toBe(false)
   })
 })
