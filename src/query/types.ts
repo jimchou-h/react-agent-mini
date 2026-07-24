@@ -1,5 +1,6 @@
 import type { QueryDeps } from './deps.js'
 import type { ToolUseContext, Tools } from '../Tool.js'
+import type { CompactOptions } from '../services/compact/compact.js'
 import type { Message } from '../types/message.js'
 
 /**
@@ -33,6 +34,8 @@ export type QueryParams = {
   deps?: QueryDeps
   /** 项目级 system prompt，每轮 callModel 透传 */
   systemPrompt?: string
+  /** 出站消息裁剪配置；缺省用环境变量/内置默认值（见 compact 模块） */
+  compact?: CompactOptions
 }
 
 /**

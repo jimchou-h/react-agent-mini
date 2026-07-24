@@ -7,6 +7,7 @@ import type {
   StreamEvent,
   UserMessage,
 } from './types/message.js'
+import { compactMessages } from './services/compact/compact.js'
 import { runTools } from './services/tools/orchestration.js'
 import {
   appendTurnMessages,
@@ -90,9 +91,10 @@ async function* queryLoop(
      */
     let needsFollowUp = false
 
-    // —— 阶段 1：调用模型 ——
+    // —— 阶段 1：调用模型（出站副本先 compact，会话内存不变） ——
+    const outbound = compactMessages(messages, params.compact)
     for await (const chunk of deps.callModel({
-      messages,
+      messages: outbound,
       tools: params.tools,
       systemPrompt: params.systemPrompt,
     })) {
