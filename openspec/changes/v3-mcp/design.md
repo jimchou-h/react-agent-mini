@@ -41,7 +41,7 @@ claude-code 通过 MCP 动态加载外部 tools。mini 只做 **stdio** 单/多 
 }
 ```
 
-无文件则跳过 MCP（零开销）。环境变量 `MCP_CONFIG` 可覆盖路径。
+无文件则跳过 MCP（零开销）。环境变量 `MCP_CONFIG` 可覆盖路径；支持逗号分隔多文件，后者覆盖同名 server。
 
 ### 3. Schema 适配
 
