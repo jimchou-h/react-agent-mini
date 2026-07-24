@@ -90,3 +90,76 @@ describe('compactMessages tool_result truncation', () => {
     expect(out).toEqual(messages)
   })
 })
+
+describe('compactMessages maxMessages tail retention', () => {
+  function conversation(turns: number): Message[] {
+    const messages: Message[] = []
+    for (let i = 0; i < turns; i++) {
+      messages.push(createUserMessage(`问题${i}`))
+      messages.push(...toolTurn(`toolu_${i}`, `结果${i}`))
+      messages.push(
+        createAssistantMessage([{ type: 'text', text: `回答${i}` }]),
+      )
+    }
+    return messages
+  }
+
+  test('drops oldest turns when over maxMessages', () => {
+    const messages = conversation(10) // 40 条
+    const out = compactMessages(messages, { maxMessages: 12 })
+
+    expect(out.length).toBeLessThanOrEqual(12)
+    // 最新轮次完整保留
+    const last = out.at(-1)
+    expect(last).toEqual(messages.at(-1)!)
+  })
+
+  test('trim boundary starts at a user text message (no orphan tool_result)', () => {
+    const messages = conversation(10)
+    const out = compactMessages(messages, { maxMessages: 10 })
+
+    const first = out[0]
+    if (first.type !== 'user') throw new Error('expected user message first')
+    expect(first.content.every(b => b.type === 'text')).toBe(true)
+
+    // 所有 tool_result 都有同列表中的配对 tool_use
+    const toolUseIds = new Set(
+      out.flatMap(m =>
+        m.content.filter(b => b.type === 'tool_use').map(b => b.id),
+      ),
+    )
+    for (const m of out) {
+      for (const b of m.content) {
+        if (b.type === 'tool_result') {
+          expect(toolUseIds.has(b.tool_use_id)).toBe(true)
+        }
+      }
+    }
+  })
+
+  test('returns same array when within maxMessages', () => {
+    const messages = conversation(2) // 8 条
+    const out = compactMessages(messages, { maxMessages: 40 })
+    expect(out).toBe(messages)
+  })
+
+  test('applies both truncation and tail retention together', () => {
+    const messages: Message[] = [
+      ...conversation(8),
+      createUserMessage('再读一次'),
+      ...toolTurn('toolu_big', 'w'.repeat(9000)),
+    ]
+    const out = compactMessages(messages, {
+      maxMessages: 8,
+      maxToolResultChars: 500,
+    })
+
+    expect(out.length).toBeLessThanOrEqual(8)
+    const result = out.at(-1)
+    if (result?.type !== 'user') throw new Error('expected user message')
+    const block = result.content[0]
+    if (block.type !== 'tool_result') throw new Error('expected tool_result')
+    expect(block.content).toContain(TRUNCATION_NOTE)
+    expect(block.content.length).toBeLessThan(1000)
+  })
+})
