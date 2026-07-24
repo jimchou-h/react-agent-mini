@@ -92,7 +92,11 @@ export async function runToolUse(
         ? result.data
         : JSON.stringify(result.data)
     return finish({
-      message: createToolResultMessage(block.id, text, false),
+      message: createToolResultMessage(
+        block.id,
+        text,
+        result.isError === true,
+      ),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

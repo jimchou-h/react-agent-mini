@@ -6,10 +6,10 @@ stdio MCP 客户端与工具适配。源码：`src/services/mcp/`。
 
 | 术语 | 说明 |
 |------|------|
-| **`.mcp.json`** | 项目根配置；`MCP_CONFIG` 可覆盖路径 |
+| **`.mcp.json`** | 项目根配置；`MCP_CONFIG` 可覆盖（逗号分隔多文件，后者覆盖同名 server） |
 | **mcpServers** | server id → `{ command, args?, env? }` |
 | **mcp__\<server\>__\<tool\>** | 合并进会话的公开工具名，避免覆盖 builtin |
-| **adaptMcpTool** | MCP list_tools 条目 → 内部 `Tool` |
+| **adaptMcpTool** | MCP list_tools 条目 → 内部 `Tool`；透传 `isError`；image 块省略 base64 |
 | **connectMcpSession** | stdio 连接、listTools、close |
 | **loadMcpTools** | 启动时加载；无配置则空列表；失败 server 降级 |
 | **sessionTools** | `getTools()` + MCP tools 合并 |
@@ -19,3 +19,4 @@ stdio MCP 客户端与工具适配。源码：`src/services/mcp/`。
 - 仅 **stdio** transport
 - 不支持 SSE/HTTP、OAuth、resources/prompts
 - 默认 `isReadOnly=false`（走 canUseTool）；`readOnlyHint` 可映射为只读
+- image content 不入模型上下文（仅占位提示）

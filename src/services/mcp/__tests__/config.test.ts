@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { loadMcpConfig, resolveMcpConfigPath } from '../config.js'
+import {
+  loadMcpConfig,
+  resolveMcpConfigPath,
+  resolveMcpConfigPaths,
+} from '../config.js'
 
 describe('loadMcpConfig', () => {
   let testDir: string
@@ -82,5 +86,39 @@ describe('loadMcpConfig', () => {
     expect(resolveMcpConfigPath(testDir)).toBe(custom)
     const config = await loadMcpConfig(testDir)
     expect(config?.mcpServers.alt?.command).toBe('node')
+  })
+
+  test('MCP_CONFIG comma-separated paths merge servers', async () => {
+    const a = join(testDir, 'a.json')
+    const b = join(testDir, 'b.json')
+    await writeFile(
+      a,
+      JSON.stringify({
+        mcpServers: {
+          one: { command: 'node', args: ['one.js'] },
+          shared: { command: 'node', args: ['from-a.js'] },
+        },
+      }),
+      'utf-8',
+    )
+    await writeFile(
+      b,
+      JSON.stringify({
+        mcpServers: {
+          two: { command: 'node', args: ['two.js'] },
+          shared: { command: 'node', args: ['from-b.js'] },
+        },
+      }),
+      'utf-8',
+    )
+    process.env.MCP_CONFIG = `${a},${b}`
+
+    expect(resolveMcpConfigPaths(testDir)).toEqual([a, b])
+    const config = await loadMcpConfig(testDir)
+    expect(config?.mcpServers).toEqual({
+      one: { command: 'node', args: ['one.js'] },
+      shared: { command: 'node', args: ['from-b.js'] },
+      two: { command: 'node', args: ['two.js'] },
+    })
   })
 })

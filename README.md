@@ -20,7 +20,7 @@ bun install
 | `QUERY_MOCK` | 否 | — | 设为 `1` 使用内置 mock（无需 Key） |
 | `TRACE` | 否 | — | 设为 `1` 向 stderr 打印 `[trace]` 全链路日志 |
 | `ALLOW_WRITE` | 否 | — | 设为 `1` 时 headless/pipe 允许写类工具（含非只读 MCP）；默认拒绝 |
-| `MCP_CONFIG` | 否 | `<cwd>/.mcp.json` | MCP 配置文件路径 |
+| `MCP_CONFIG` | 否 | `<cwd>/.mcp.json` | MCP 配置路径；逗号分隔可合并多文件（后者覆盖同名 server） |
 
 ### Write 权限（简要）
 
@@ -93,14 +93,33 @@ Skill({ "skill": "echo-demo" })
 
 ### MCP（stdio 外部工具）
 
-项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径）即可在启动时连接 stdio MCP server，工具以 `mcp__<server>__<tool>` 名称合并进会话：
+项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径，支持逗号分隔多文件合并）即可在启动时连接 stdio MCP server，工具以 `mcp__<server>__<tool>` 名称合并进会话。
+
+博客分两篇：
+
+- 概念（六大能力 + Demo）：[`docs/blog/mcp-concepts.md`](docs/blog/mcp-concepts.md)
+- 本仓库接线实现：[`docs/blog/mcp.md`](docs/blog/mcp.md)
+
+```bash
+# 概念 tour：Tools + Resources + Prompts（API 分别打一遍）
+node examples/mcp-tour-server/smoke.mjs
+# Host 用法串起来：挂材料 → 取开场 → 调工具
+node examples/mcp-tour-server/how-to-host.mjs
+
+# 接进 Agent 的计算器
+node examples/mcp-calc-server/smoke.mjs
+cp .mcp.json.example .mcp.json
+bun run dev   # 问：用计算器算 17+25
+```
+
+配置模板（与 `.mcp.json.example` 相同）：
 
 ```json
 {
   "mcpServers": {
-    "demo": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-everything"]
+    "calc": {
+      "command": "node",
+      "args": ["examples/mcp-calc-server/server.js"]
     }
   }
 }
@@ -111,7 +130,7 @@ Skill({ "skill": "echo-demo" })
 | 无配置文件 | 跳过 MCP，仅内置工具（与 v2 一致） |
 | 某 server 连接失败 | stderr 警告并跳过该 server |
 | 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL y/n；headless 需 `ALLOW_WRITE=1`） |
-| 限制 | 仅 stdio；不支持 SSE/HTTP、OAuth、resources/prompts |
+| 限制 | Agent 仅接 stdio Tools；完整六大能力见概念篇与 `examples/mcp-tour-server` |
 
 ### Mock 单次问答（无需 API Key）
 

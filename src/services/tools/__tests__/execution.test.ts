@@ -111,6 +111,44 @@ describe('runToolUse permissions', () => {
       expect(result.content).toBe('ok')
     }
   })
+
+  test('ToolResult.isError marks tool_result as is_error', async () => {
+    const tool: Tool = {
+      name: 'SoftFail',
+      description: 'returns soft error',
+      inputSchema: z.object({}),
+      async call() {
+        return { data: 'soft fail', isError: true }
+      },
+      isReadOnly() {
+        return true
+      },
+      isConcurrencySafe() {
+        return true
+      },
+      isEnabled() {
+        return true
+      },
+    }
+    const block: ToolUseBlock = {
+      type: 'tool_use',
+      id: 'toolu_soft_1',
+      name: 'SoftFail',
+      input: {},
+    }
+    const parent = createAssistantMessage([block])
+    const update = await runToolUse(
+      block,
+      parent,
+      createMinimalToolContext([tool]),
+    )
+    const result = update.message.content[0]
+    expect(result.type).toBe('tool_result')
+    if (result.type === 'tool_result') {
+      expect(result.is_error).toBe(true)
+      expect(result.content).toBe('soft fail')
+    }
+  })
 })
 
 describe('runToolUse trace', () => {

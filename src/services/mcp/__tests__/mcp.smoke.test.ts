@@ -48,6 +48,34 @@ describe('MCP session smoke', () => {
     }
   })
 
+  test('MCP isError becomes tool_result.is_error via runToolUse', async () => {
+    const mcpTool = adaptMcpTool(
+      'fixture',
+      { name: 'soft' },
+      async () => ({
+        content: [{ type: 'text', text: 'server said no' }],
+        isError: true,
+      }),
+    )
+    const block: ToolUseBlock = {
+      type: 'tool_use',
+      id: 'toolu_mcp_err',
+      name: mcpTool.name,
+      input: {},
+    }
+    const parent = createAssistantMessage([block])
+    const update = await runToolUse(block, parent, {
+      ...createMinimalToolContext([mcpTool]),
+      canUseTool: async () => ({ behavior: 'allow' }),
+    })
+    const result = update.message.content[0]
+    expect(result.type).toBe('tool_result')
+    if (result.type === 'tool_result') {
+      expect(result.is_error).toBe(true)
+      expect(result.content).toBe('server said no')
+    }
+  })
+
   test('headless denies non-readonly MCP tools without ALLOW_WRITE', async () => {
     const prev = process.env.ALLOW_WRITE
     delete process.env.ALLOW_WRITE

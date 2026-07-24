@@ -9,7 +9,7 @@
 | **Tool** | tool definition | `name`、`description`、`inputSchema`（Zod）、`call()` |
 | **Tools** | tools registry | `readonly Tool[]`，由 `getTools()` 提供 |
 | **ToolUseContext** | tool context | `tools` 列表 + 可选 `skills` + 可选 `canUseTool` |
-| **ToolResult** | tool result | `{ data }`，由 `runToolUse` 序列化为 `tool_result.content` |
+| **ToolResult** | tool result | `{ data, isError? }`，`runToolUse` 序列化为 `tool_result`；`isError` → `is_error` |
 | **tool_use** | tool use block | 模型请求调用工具；`AssistantMessage` 中的块类型 |
 | **tool_result** | tool result block | 工具执行结果；`UserMessage` 中的块类型 |
 

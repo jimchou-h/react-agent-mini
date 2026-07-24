@@ -42,6 +42,8 @@ export type Tools = readonly Tool[]
 export type ToolResult<T = unknown> = {
   /** 工具执行产出的结构化数据，runToolUse 会转为字符串 */
   data: T
+  /** 为 true 时 runToolUse 将 tool_result 标为 is_error（如 MCP isError） */
+  isError?: boolean
 }
 
 /**

@@ -21,3 +21,9 @@
 - [x] 4.1 `bun run typecheck` 与 `bun test` 通过
 - [x] 4.2 Smoke：fixture 或 mock MCP server 工具可被调用（可用注入 fake transport）
 - [x] 4.3 无 `.mcp.json` 时回归与 v2 一致
+
+## 5. 补丁（#44）
+
+- [x] 5.1 `ToolResult.isError` 透传 MCP `isError` → `tool_result.is_error`
+- [x] 5.2 image content 省略 base64，保留 text
+- [x] 5.3 `MCP_CONFIG` 逗号分隔多文件合并

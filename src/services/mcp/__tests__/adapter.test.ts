@@ -66,6 +66,28 @@ describe('adaptMcpTool', () => {
     )
     expect(tool.isReadOnly({})).toBe(true)
   })
+
+  test('propagates MCP isError onto ToolResult', async () => {
+    const tool = adaptMcpTool('demo', { name: 'fail' }, async () => ({
+      content: [{ type: 'text', text: 'boom' }],
+      isError: true,
+    }))
+    const result = await tool.call({}, createMinimalToolContext([tool]))
+    expect(result.data).toBe('boom')
+    expect(result.isError).toBe(true)
+  })
+
+  test('omits image payloads and keeps text blocks', async () => {
+    const tool = adaptMcpTool('demo', { name: 'vision' }, async () => ({
+      content: [
+        { type: 'text', text: 'see below' },
+        { type: 'image', mimeType: 'image/png', data: 'AAAA' },
+      ],
+    }))
+    const result = await tool.call({}, createMinimalToolContext([tool]))
+    expect(result.data).toBe('see below\n[图片: image/png，内容已省略]')
+    expect(result.isError).toBeUndefined()
+  })
 })
 
 describe('mergeTools', () => {

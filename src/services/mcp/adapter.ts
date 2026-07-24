@@ -45,7 +45,9 @@ export function adaptMcpTool(
     async call(args): Promise<ToolResult> {
       try {
         const result = await callTool(info.name, args as Record<string, unknown>)
-        return { data: formatMcpResult(result) }
+        const data = formatMcpResult(result)
+        const isError = mcpResultIsError(result)
+        return isError ? { data, isError: true } : { data }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         throw new Error(`MCP 调用失败 (${publicName}): ${msg}`)
@@ -66,31 +68,47 @@ export function adaptMcpTool(
   }
 }
 
-function formatMcpResult(result: unknown): string {
+function mcpResultIsError(result: unknown): boolean {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'isError' in result &&
+    (result as { isError?: unknown }).isError === true
+  )
+}
+
+/** 将 MCP tools/call 结果格式化为模型可读文本 */
+export function formatMcpResult(result: unknown): string {
   if (result == null) return ''
   if (typeof result === 'string') return result
 
   if (typeof result === 'object' && result !== null && 'content' in result) {
     const content = (result as { content?: unknown }).content
     if (Array.isArray(content)) {
-      return content
-        .map(block => {
-          if (
-            block &&
-            typeof block === 'object' &&
-            'type' in block &&
-            (block as { type: string }).type === 'text' &&
-            'text' in block
-          ) {
-            return String((block as { text: unknown }).text)
-          }
-          return JSON.stringify(block)
-        })
-        .join('\n')
+      return content.map(formatContentBlock).join('\n')
     }
   }
 
   return typeof result === 'object'
     ? JSON.stringify(result, null, 2)
     : String(result)
+}
+
+function formatContentBlock(block: unknown): string {
+  if (!block || typeof block !== 'object' || !('type' in block)) {
+    return JSON.stringify(block)
+  }
+
+  const typed = block as { type: string; text?: unknown; mimeType?: unknown }
+  if (typed.type === 'text' && 'text' in typed) {
+    return String(typed.text)
+  }
+  if (typed.type === 'image') {
+    const mime =
+      typeof typed.mimeType === 'string' && typed.mimeType
+        ? typed.mimeType
+        : 'unknown'
+    return `[图片: ${mime}，内容已省略]`
+  }
+  return JSON.stringify(block)
 }

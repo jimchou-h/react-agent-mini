@@ -14,29 +14,57 @@ export type McpConfig = {
 }
 
 /**
- * 解析 MCP 配置文件路径
+ * 解析 MCP 配置文件路径列表
  *
- * 优先 `MCP_CONFIG` 环境变量；否则为 `<cwd>/.mcp.json`。
+ * 优先 `MCP_CONFIG`（支持逗号分隔多路径）；否则为 `[<cwd>/.mcp.json]`。
  */
-export function resolveMcpConfigPath(cwd = process.cwd()): string {
+export function resolveMcpConfigPaths(cwd = process.cwd()): string[] {
   const override = process.env.MCP_CONFIG?.trim()
   if (override) {
-    return isAbsolute(override) ? override : resolve(cwd, override)
+    return override
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(p => (isAbsolute(p) ? p : resolve(cwd, p)))
   }
-  return resolve(cwd, '.mcp.json')
+  return [resolve(cwd, '.mcp.json')]
 }
 
 /**
- * 加载 `.mcp.json`（或 `MCP_CONFIG`）
+ * 解析单一 MCP 配置路径（取 `resolveMcpConfigPaths` 的第一项）
+ */
+export function resolveMcpConfigPath(cwd = process.cwd()): string {
+  return resolveMcpConfigPaths(cwd)[0]!
+}
+
+/**
+ * 加载 `.mcp.json`（或 `MCP_CONFIG`，可逗号分隔多文件合并）
  *
- * @returns 解析后的配置；文件不存在时返回 `undefined`（跳过 MCP）
- * @throws 非法 JSON 或结构无效时抛出可读错误
+ * 后载入文件的同名 server 覆盖先载入的。全部文件不存在时返回 `undefined`。
+ *
+ * @throws 任一存在的文件 JSON/结构无效时抛出可读错误
  */
 export async function loadMcpConfig(
   cwd = process.cwd(),
 ): Promise<McpConfig | undefined> {
-  const path = resolveMcpConfigPath(cwd)
+  const paths = resolveMcpConfigPaths(cwd)
+  const merged: Record<string, McpServerConfig> = {}
+  let foundAny = false
 
+  for (const path of paths) {
+    const partial = await loadOneMcpConfigFile(path)
+    if (!partial) continue
+    foundAny = true
+    Object.assign(merged, partial.mcpServers)
+  }
+
+  if (!foundAny) return undefined
+  return { mcpServers: merged }
+}
+
+async function loadOneMcpConfigFile(
+  path: string,
+): Promise<McpConfig | undefined> {
   let raw: string
   try {
     raw = await readFile(path, 'utf-8')
