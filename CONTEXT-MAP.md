@@ -25,7 +25,7 @@
 | 文件 | 说明 |
 |------|------|
 | [`docs/agents/domain.md`](docs/agents/domain.md) | Agent 技能如何消费领域文档 |
-| [`openspec/changes/minimal-react-agent/`](openspec/changes/minimal-react-agent/) | v0 变更提案与设计决策 |
+| [`openspec/changes/archive/`](openspec/changes/archive/) | 历次变更提案与设计决策（含 v0 minimal-react-agent） |
 
 ## 约定
 
