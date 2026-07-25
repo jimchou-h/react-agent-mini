@@ -23,12 +23,17 @@ bun install
 | `MCP_CONFIG` | 否 | `<cwd>/.mcp.json` | MCP 配置路径；逗号分隔可合并多文件（后者覆盖同名 server） |
 | `COMPACT` | 否 | 开启 | 设为 `0` 关闭出站消息裁剪（compact） |
 
-### Write 权限（简要）
+### Write / Edit 权限（简要）
 
 | 模式 | 行为 |
 |------|------|
-| REPL | 写入前询问 `y/N` |
+| REPL | Write/Edit 前询问 `y/N` |
 | headless / pipe | 默认拒绝；`$env:ALLOW_WRITE="1"` 后允许 |
+
+| 工具 | 何时用 |
+|------|--------|
+| **Write** | 新建文件，或整文件覆盖重写 |
+| **Edit** | 改已知片段：`old_string` → `new_string`（默认唯一匹配；`replace_all` 可全量替换） |
 
 PowerShell 设置示例：
 
@@ -98,8 +103,8 @@ Skill({ "skill": "echo-demo" })
 
 博客分两篇：
 
-- 概念（六大能力 + Demo）：[`docs/blog/mcp-concepts.md`](docs/blog/mcp-concepts.md)
-- 本仓库接线实现：[`docs/blog/mcp.md`](docs/blog/mcp.md)
+- 概念（六大能力 + Demo）：[CSDN](https://blog.csdn.net/weixin_43160044/article/details/163114630) · [`docs/blog/mcp-concepts.md`](docs/blog/mcp-concepts.md)
+- 本仓库接线实现：[CSDN](https://blog.csdn.net/weixin_43160044/article/details/163081253) · [`docs/blog/mcp.md`](docs/blog/mcp.md)
 
 ```bash
 # 概念 tour：Tools + Resources + Prompts（API 分别打一遍）

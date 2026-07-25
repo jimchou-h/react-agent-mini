@@ -35,6 +35,7 @@
 | **Glob** | 是 | cwd 内 glob 列文件；最多 100 条 |
 | **Skill** | 是 | 按名称返回已发现 SKILL.md 正文；未知名称返回错误 |
 | **Write** | 否 | 覆盖写入 cwd 内文件；内容 ≤100KB；父目录须已存在 |
+| **Edit** | 否 | 已存在文件中 `old_string`→`new_string`；默认唯一匹配；可选 `replace_all`；文件 ≤100KB |
 
 ### Read 专用术语
 
@@ -50,6 +51,15 @@
 |------|------|
 | **MAX_WRITE_BYTES** | 100 × 1024，超出返回工具错误 |
 | **覆盖写** | 不自动 `mkdir`；父目录必须存在 |
+
+### Edit 专用术语
+
+| 术语 | 说明 |
+|------|------|
+| **MAX_EDIT_BYTES** | 100 × 1024，超出返回工具错误 |
+| **唯一匹配** | 默认 `old_string` 须恰好出现一次，否则报错 |
+| **replace_all** | 为 true 时替换全部出现 |
+| **Edit vs Write** | 改片段用 Edit；新建/整文件重写用 Write |
 
 ### Grep / Glob 术语
 

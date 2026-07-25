@@ -60,6 +60,23 @@ describe('EditTool', () => {
     expect(await readFile('a.txt', 'utf-8')).toBe('aa aa aa\n')
   })
 
+  test('replace_all replaces every occurrence', async () => {
+    await writeFile('a.txt', 'aa aa aa\n', 'utf-8')
+
+    const result = await EditTool.call(
+      {
+        path: 'a.txt',
+        old_string: 'aa',
+        new_string: 'bb',
+        replace_all: true,
+      },
+      createMinimalToolContext([EditTool]),
+    )
+
+    expect(result.data).toContain('3')
+    expect(await readFile('a.txt', 'utf-8')).toBe('bb bb bb\n')
+  })
+
   test('rejects path outside cwd', async () => {
     await expect(
       EditTool.call(

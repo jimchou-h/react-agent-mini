@@ -57,7 +57,7 @@ src/
 ├── Tool.ts                    # Tool 契约、ToolUseContext、CanUseTool
 ├── permissions/
 │   └── canUseTool.ts          # REPL y/n 与 headless ALLOW_WRITE 策略
-├── tools/                     # Echo、Read、Grep、Glob、Skill、Write + getTools()
+├── tools/                     # Echo、Read、Grep、Glob、Skill、Write、Edit + getTools()
 ├── services/
 │   ├── api/
 │   │   ├── client.ts          # callModel 入口
@@ -88,11 +88,16 @@ src/
 
 ### 权限策略（v2）
 
-| 模式 | 只读工具 | Write |
-|------|----------|-------|
+| 模式 | 只读工具 | Write / Edit |
+|------|----------|--------------|
 | 未注入 `canUseTool` | auto-allow | auto-allow（仅测试默认） |
 | REPL | allow | stdin 询问 `y/N`；`n` 则 abort 本轮 |
 | headless / pipe | allow | deny，除非 `ALLOW_WRITE=1` |
+
+| 工具 | 场景 |
+|------|------|
+| **Write** | 新建 / 整文件覆盖 |
+| **Edit** | 已存在文件中精确字符串替换（默认唯一匹配） |
 
 内部消息统一为 **Anthropic 形态**（`tool_use` / `tool_result`），与 claude-code 一致；DeepSeek 差异由 `services/api/openai/` 吸收。
 
