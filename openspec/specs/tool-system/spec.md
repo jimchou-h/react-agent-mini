@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Skill / Write 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
+定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Skill / Write / Edit 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
 
 ## Requirements
 
@@ -24,6 +24,11 @@
 
 - **WHEN** 调用 `getTools()`
 - **THEN** 列表包含 `Write`
+
+#### Scenario: Edit 出现在工具表
+
+- **WHEN** 调用 `getTools()`
+- **THEN** 列表包含 `Edit`
 
 ### Requirement: 串行工具执行
 
@@ -89,6 +94,15 @@
 
 - **WHEN** 调用 `getTools()`
 - **THEN** 返回列表中存在 `name === 'Skill'` 的工具
+
+### Requirement: Edit 工具注册
+
+`getTools()` SHALL 包含 `Edit` 工具。
+
+#### Scenario: 工具表含 Edit
+
+- **WHEN** 调用 `getTools()`
+- **THEN** 返回列表中存在 `name === 'Edit'` 的工具
 
 ### Requirement: 动态工具合并
 
