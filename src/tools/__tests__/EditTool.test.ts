@@ -3,6 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createMinimalToolContext } from '../../testing/fixtures.js'
+import { formatToolStartStatus } from '../../entrypoints/cliHelpers.js'
+import { getTools } from '../index.js'
 import { EditTool, MAX_EDIT_BYTES } from '../EditTool.js'
 
 describe('EditTool', () => {
@@ -120,5 +122,17 @@ describe('EditTool', () => {
         new_string: 'b',
       }),
     ).toBe(false)
+  })
+
+  test('is registered in getTools and formats CLI status', () => {
+    expect(getTools().some(t => t.name === 'Edit')).toBe(true)
+    expect(
+      formatToolStartStatus({
+        type: 'tool_use',
+        id: 'toolu_e',
+        name: 'Edit',
+        input: { path: 'a.txt', old_string: 'a', new_string: 'b' },
+      }),
+    ).toBe('[工具] Edit: a.txt')
   })
 })

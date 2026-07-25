@@ -133,4 +133,42 @@ describe('createReplCanUseTool', () => {
     })
     expect(abortController.signal.aborted).toBe(true)
   })
+
+  test('Edit confirmation summary includes path and old_string preview', async () => {
+    const prompts: string[] = []
+    const canUse = createReplCanUseTool(async prompt => {
+      prompts.push(prompt)
+      return 'y'
+    })
+    const editTool: Tool = {
+      name: 'Edit',
+      description: 'edit',
+      inputSchema: z.object({
+        path: z.string(),
+        old_string: z.string(),
+        new_string: z.string(),
+      }),
+      async call() {
+        return { data: 'ok' }
+      },
+      isReadOnly() {
+        return false
+      },
+      isConcurrencySafe() {
+        return false
+      },
+      isEnabled() {
+        return true
+      },
+    }
+    const result = await canUse(
+      editTool,
+      { path: 'src/a.ts', old_string: 'foo', new_string: 'bar' },
+      { tools: [] },
+    )
+    expect(result).toEqual({ behavior: 'allow' })
+    expect(prompts[0]).toContain('Edit')
+    expect(prompts[0]).toContain('src/a.ts')
+    expect(prompts[0]).toContain('foo')
+  })
 })

@@ -59,6 +59,15 @@ function formatWriteSummary(tool: Tool, input: unknown): string {
       : {}
   const path =
     typeof record.path === 'string' ? record.path : undefined
+
+  if (tool.name === 'Edit' && path) {
+    const oldString =
+      typeof record.old_string === 'string' ? record.old_string : ''
+    const preview =
+      oldString.length > 40 ? `${oldString.slice(0, 40)}…` : oldString
+    return `允许 Edit 修改 ${path}（替换「${preview}」）？[y/N] `
+  }
+
   const content =
     typeof record.content === 'string' ? record.content : ''
   const bytes = Buffer.byteLength(content, 'utf-8')
