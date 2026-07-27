@@ -326,7 +326,7 @@ describe('query', () => {
           type: 'tool_use',
           id: 'toolu_write_abort',
           name: 'Write',
-          input: { path: 'x.txt', content: 'nope' },
+          input: { file_path: 'x.txt', content: 'nope' },
         },
       ])
     }

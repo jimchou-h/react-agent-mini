@@ -1,4 +1,5 @@
 import type { Tools } from '../Tool.js'
+import { BashTool } from './BashTool.js'
 import { EchoTool } from './EchoTool.js'
 import { EditTool } from './EditTool.js'
 import { GlobTool } from './GlobTool.js'
@@ -22,5 +23,6 @@ export function getTools(): Tools {
     SkillTool,
     WriteTool,
     EditTool,
+    BashTool,
   ]
 }

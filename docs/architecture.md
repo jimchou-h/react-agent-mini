@@ -10,7 +10,7 @@
 | 可学习 | 核心循环 ~150 行，中文注释 |
 | 可扩展 | 模块边界与 claude-code 同构，换 Provider / 加工具不改 `query.ts` |
 
-**刻意不做**：Ink UI、权限弹窗（REPL 用 stdin y/n）、会话持久化、SSE/HTTP MCP、compact、并发工具。
+**刻意不做**：Ink UI、权限弹窗（REPL 用 stdin y/n）、会话持久化、SSE/HTTP MCP、并发工具。
 
 ## ReAct 主循环
 
@@ -57,7 +57,7 @@ src/
 ├── Tool.ts                    # Tool 契约、ToolUseContext、CanUseTool
 ├── permissions/
 │   └── canUseTool.ts          # REPL y/n 与 headless ALLOW_WRITE 策略
-├── tools/                     # Echo、Read、Grep、Glob、Skill、Write、Edit + getTools()
+├── tools/                     # Echo、Read、Grep、Glob、Skill、Write、Edit、Bash + getTools()
 ├── services/
 │   ├── api/
 │   │   ├── client.ts          # callModel 入口
@@ -88,8 +88,8 @@ src/
 
 ### 权限策略（v2）
 
-| 模式 | 只读工具 | Write / Edit |
-|------|----------|--------------|
+| 模式 | 只读工具 | Write / Edit / Bash / 非只读 MCP |
+|------|----------|-----------------------------------|
 | 未注入 `canUseTool` | auto-allow | auto-allow（仅测试默认） |
 | REPL | allow | stdin 询问 `y/N`；`n` 则 abort 本轮 |
 | headless / pipe | allow | deny，除非 `ALLOW_WRITE=1` |
@@ -97,7 +97,8 @@ src/
 | 工具 | 场景 |
 |------|------|
 | **Write** | 新建 / 整文件覆盖 |
-| **Edit** | 已存在文件中精确字符串替换（默认唯一匹配） |
+| **Edit** | 已存在文件中精确字符串替换（默认唯一匹配；支持 CRLF / 行尾空白回退匹配） |
+| **Bash** | 在当前工作目录执行 shell 命令（默认超时 120s，最大 600s） |
 
 内部消息统一为 **Anthropic 形态**（`tool_use` / `tool_result`），与 claude-code 一致；DeepSeek 差异由 `services/api/openai/` 吸收。
 
@@ -128,7 +129,7 @@ src/
 1. `discoverSkills()` 扫描 `.agents/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`
 2. 解析 frontmatter 的 `name` / `description`，正文上限 32KB
 3. `buildSystemPrompt()` 把名称摘要追加到 project context
-4. 模型调用只读 `Skill({ skill })`，正文作为 `tool_result` 回注下一轮推理
+4. 模型调用只读 `Skill({ skill, args? })`；skill ID 为目录名，正文通过附加 user message 注入下一轮推理，`tool_result` 仅返回短确认
 
 Skill 正文不会永久追加到 system prompt；仅目录摘要常驻。这样既可发现具名工作流，又避免所有技能正文占满上下文。`/clear` 不重扫目录。
 

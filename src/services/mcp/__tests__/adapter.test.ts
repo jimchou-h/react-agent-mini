@@ -10,6 +10,9 @@ import { createMinimalToolContext } from '../../../testing/fixtures.js'
 describe('adaptMcpTool', () => {
   test('builds a prefixed public tool name', () => {
     expect(mcpPublicToolName('demo', 'foo')).toBe('mcp__demo__foo')
+    expect(mcpPublicToolName('my.server', 'foo.bar')).toBe(
+      'mcp__my_server__foo_bar',
+    )
   })
 
   test('forwards call arguments and formats text content', async () => {

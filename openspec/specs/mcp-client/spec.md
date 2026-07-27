@@ -27,12 +27,12 @@ stdio MCP 客户端：从 `.mcp.json` / `MCP_CONFIG` 加载配置，发现并适
 
 ### Requirement: MCP 工具发现与适配
 
-系统 SHALL 将 MCP `list_tools` 结果适配为内部 `Tool`，并合并进会话可用工具列表。
+系统 SHALL 将 MCP `list_tools` 结果适配为内部 `Tool`，并合并进会话可用工具列表。公开工具名 SHALL 对 server id 与原始 tool 名应用 `normalizeNameForMCP`（`.` 与空格替换为 `_`），再拼接为 `mcp__<server>__<tool>`。
 
 #### Scenario: 工具出现在 getTools 合并结果
 
-- **WHEN** MCP server 暴露名为 `foo` 的工具且 server id 为 `demo`
-- **THEN** 会话工具列表包含带 server 前缀的唯一名称（如 `mcp__demo__foo`）
+- **WHEN** MCP server 暴露名为 `foo.bar` 的工具且 server id 为 `my.server`
+- **THEN** 会话工具列表包含规范化后的唯一名称（如 `mcp__my_server__foo_bar`）
 
 #### Scenario: 调用转发
 

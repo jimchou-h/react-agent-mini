@@ -9,6 +9,7 @@ import { runToolUse } from './execution.js'
  */
 export type ToolOrchestrationUpdate = {
   message?: UserMessage
+  prependMessages?: UserMessage[]
 }
 
 /**
@@ -30,7 +31,12 @@ export async function* runTools(
     if (context.abortController?.signal.aborted) {
       break
     }
-    const { message } = await runToolUse(block, parentMessage, context)
-    yield { message }
+    const update = await runToolUse(block, parentMessage, context)
+    if (update.prependMessages) {
+      for (const message of update.prependMessages) {
+        yield { message }
+      }
+    }
+    yield { message: update.message }
   }
 }

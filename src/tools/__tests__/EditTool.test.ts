@@ -26,7 +26,7 @@ describe('EditTool', () => {
     await writeFile('a.txt', 'hello world\n', 'utf-8')
 
     const result = await EditTool.call(
-      { path: 'a.txt', old_string: 'world', new_string: 'bun' },
+      { file_path: 'a.txt', old_string: 'world', new_string: 'bun' },
       createMinimalToolContext([EditTool]),
     )
 
@@ -39,7 +39,7 @@ describe('EditTool', () => {
 
     await expect(
       EditTool.call(
-        { path: 'a.txt', old_string: 'missing', new_string: 'x' },
+        { file_path: 'a.txt', old_string: 'missing', new_string: 'x' },
         createMinimalToolContext([EditTool]),
       ),
     ).rejects.toThrow('未找到')
@@ -52,7 +52,7 @@ describe('EditTool', () => {
 
     await expect(
       EditTool.call(
-        { path: 'a.txt', old_string: 'aa', new_string: 'bb' },
+        { file_path: 'a.txt', old_string: 'aa', new_string: 'bb' },
         createMinimalToolContext([EditTool]),
       ),
     ).rejects.toThrow('多次')
@@ -65,7 +65,7 @@ describe('EditTool', () => {
 
     const result = await EditTool.call(
       {
-        path: 'a.txt',
+        file_path: 'a.txt',
         old_string: 'aa',
         new_string: 'bb',
         replace_all: true,
@@ -81,7 +81,7 @@ describe('EditTool', () => {
     await expect(
       EditTool.call(
         {
-          path: '../../outside.txt',
+          file_path: '../../outside.txt',
           old_string: 'a',
           new_string: 'b',
         },
@@ -100,7 +100,7 @@ describe('EditTool', () => {
     await expect(
       EditTool.call(
         {
-          path: 'big.txt',
+          file_path: 'big.txt',
           old_string: 'UNIQUE_MARKER',
           new_string: 'y',
         },
@@ -112,7 +112,7 @@ describe('EditTool', () => {
   test('rejects when file does not exist', async () => {
     await expect(
       EditTool.call(
-        { path: 'nope.txt', old_string: 'a', new_string: 'b' },
+        { file_path: 'nope.txt', old_string: 'a', new_string: 'b' },
         createMinimalToolContext([EditTool]),
       ),
     ).rejects.toThrow('不存在')
@@ -123,7 +123,7 @@ describe('EditTool', () => {
 
     await expect(
       EditTool.call(
-        { path: 'a.txt', old_string: 'same', new_string: 'same' },
+        { file_path: 'a.txt', old_string: 'same', new_string: 'same' },
         createMinimalToolContext([EditTool]),
       ),
     ).rejects.toThrow('相同')
@@ -134,11 +134,27 @@ describe('EditTool', () => {
   test('is not read-only', () => {
     expect(
       EditTool.isReadOnly({
-        path: 'a.txt',
+        file_path: 'a.txt',
         old_string: 'a',
         new_string: 'b',
       }),
     ).toBe(false)
+  })
+
+  test('matches CRLF files with LF-style old_string', async () => {
+    await writeFile('crlf.txt', 'line one\r\nline two\r\n', 'utf-8')
+
+    const result = await EditTool.call(
+      {
+        file_path: 'crlf.txt',
+        old_string: 'line one\nline two',
+        new_string: 'replaced',
+      },
+      createMinimalToolContext([EditTool]),
+    )
+
+    expect(result.data).toContain('替换 1 处')
+    expect(await readFile('crlf.txt', 'utf-8')).toBe('replaced\r\n')
   })
 
   test('is registered in getTools and formats CLI status', () => {
@@ -148,7 +164,7 @@ describe('EditTool', () => {
         type: 'tool_use',
         id: 'toolu_e',
         name: 'Edit',
-        input: { path: 'a.txt', old_string: 'a', new_string: 'b' },
+        input: { file_path: 'a.txt', old_string: 'a', new_string: 'b' },
       }),
     ).toBe('[工具] Edit: a.txt')
   })

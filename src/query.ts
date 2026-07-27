@@ -1,4 +1,5 @@
 import { productionDeps } from './query/deps.js'
+import type { QueryDeps } from './query/deps.js'
 import type { QueryParams, QueryState, Terminal } from './query/types.js'
 import type {
   AssistantMessage,
@@ -7,7 +8,10 @@ import type {
   StreamEvent,
   UserMessage,
 } from './types/message.js'
-import { compactMessages } from './services/compact/compact.js'
+import {
+  applyRetainTailIfNeeded,
+  applyToolResultBudget,
+} from './services/compact/compact.js'
 import { runTools } from './services/tools/orchestration.js'
 import {
   appendTurnMessages,
@@ -37,7 +41,7 @@ import { trace } from './utils/trace.js'
 export async function* query(
   params: QueryParams,
 ): AsyncGenerator<QueryYield, Terminal> {
-  const deps = params.deps ?? productionDeps()
+  const deps: QueryDeps = { ...productionDeps(), ...params.deps }
   const maxTurns = params.maxTurns ?? 20
 
   let state: QueryState = {
@@ -51,11 +55,8 @@ export async function* query(
 /**
  * 核心 ReAct 循环体 — 对应 claude-code 内部的 queryLoop()
  *
- * 与完整版 claude-code 相比，v0 剥离了：compact、权限 UI、流式工具执行、
- * hooks、MCP 刷新等；仅保留「模型 ↔ 工具」最小闭环。
- *
  * 每轮迭代步骤：
- * 1. callModel(messages) 流式消费
+ * 1. 出站 compact 管道 → callModel（会话内存不变）
  * 2. 若响应无 tool_use → return completed
  * 3. runTools 串行执行 → 得到 tool_result
  * 4. messages 追加 assistant + tool_results，turnCount++，continue
@@ -63,7 +64,7 @@ export async function* query(
 async function* queryLoop(
   params: QueryParams,
   initialState: QueryState,
-  deps: ReturnType<typeof productionDeps>,
+  deps: QueryDeps,
   maxTurns: number,
 ): AsyncGenerator<QueryYield, Terminal> {
   let state = initialState
@@ -91,8 +92,15 @@ async function* queryLoop(
      */
     let needsFollowUp = false
 
-    // —— 阶段 1：调用模型（出站副本先 compact，会话内存不变） ——
-    const outbound = compactMessages(messages, params.compact)
+    // —— 阶段 1：出站 compact 管道（对齐 claude-code；出站-only）——
+    // applyToolResultBudget → deps.microcompact →（重估后）retainTail
+    const compactOpts = params.compact
+    let outbound = applyToolResultBudget(messages, compactOpts)
+    outbound = await Promise.resolve(
+      deps.microcompact(outbound, compactOpts),
+    )
+    outbound = applyRetainTailIfNeeded(outbound, compactOpts)
+
     for await (const chunk of deps.callModel({
       messages: outbound,
       tools: params.tools,

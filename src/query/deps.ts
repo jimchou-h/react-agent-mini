@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { CallModel } from './types.js'
+import type { CompactOptions, MicrocompactFn } from '../services/compact/compact.js'
+import { microcompactMessages } from '../services/compact/compact.js'
 import { callModel } from '../services/api/client.js'
 import { mockEchoCallModel } from '../services/api/mock.js'
 
@@ -7,7 +9,7 @@ import { mockEchoCallModel } from '../services/api/mock.js'
  * query 循环的外部依赖集合
  *
  * 对齐 claude-code src/query/deps.ts：将 IO 与循环逻辑分离，
- * 单元测试注入 fake callModel，无需 mock.module 污染全局。
+ * 单元测试注入 fake callModel / microcompact，无需 mock.module 污染全局。
  */
 export type QueryDeps = {
   /**
@@ -20,6 +22,12 @@ export type QueryDeps = {
    * 默认使用 crypto.randomUUID
    */
   uuid: () => string
+  /**
+   * 出站 microcompact — 对齐 claude-code `deps.microcompact`
+   *
+   * 低于阈值时原样返回；可注入 no-op 做单测。
+   */
+  microcompact: MicrocompactFn
 }
 
 /**
@@ -27,17 +35,23 @@ export type QueryDeps = {
  *
  * - QUERY_MOCK=1 或 CLI --mock：使用 mockEchoCallModel，无需 API Key
  * - 否则：绑定真实 DeepSeek callModel
+ * - microcompact 默认绑定本地确定性实现
  */
 export function productionDeps(): QueryDeps {
+  const microcompact: MicrocompactFn = (messages, options?: CompactOptions) =>
+    microcompactMessages(messages, options)
+
   if (process.env.QUERY_MOCK === '1') {
     return {
       callModel: mockEchoCallModel,
       uuid: randomUUID,
+      microcompact,
     }
   }
 
   return {
     callModel,
     uuid: randomUUID,
+    microcompact,
   }
 }

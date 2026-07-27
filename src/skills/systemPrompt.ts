@@ -16,11 +16,13 @@ export function buildSystemPrompt(
   const catalog = [
     '## Available Skills',
     'Use the Skill tool with a skill name to load its instructions.',
-    ...skills.map(skill =>
-      skill.description
-        ? `- ${skill.name} — ${skill.description}`
-        : `- ${skill.name}`,
-    ),
+    ...skills.map(skill => {
+      const label =
+        skill.displayName && skill.displayName !== skill.name
+          ? `${skill.name} (${skill.displayName})`
+          : skill.name
+      return skill.description ? `- ${label} — ${skill.description}` : `- ${label}`
+    }),
   ].join('\n')
 
   return projectContext ? `${projectContext}\n\n${catalog}` : catalog

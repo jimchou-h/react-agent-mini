@@ -8,7 +8,7 @@ import {
 } from '../canUseTool.js'
 
 const writeLikeSchema = z.object({
-  path: z.string(),
+  file_path: z.string(),
   content: z.string(),
 })
 
@@ -55,7 +55,7 @@ describe('createHeadlessCanUseTool', () => {
     const canUse = createHeadlessCanUseTool()
     const result = await canUse(
       createReadLikeTool(),
-      { path: 'a.txt', content: '' },
+      { file_path: 'a.txt', content: '' },
       { tools: [] },
     )
     expect(result).toEqual({ behavior: 'allow' })
@@ -66,7 +66,7 @@ describe('createHeadlessCanUseTool', () => {
     const canUse = createHeadlessCanUseTool()
     const result = await canUse(
       createWriteLikeTool(),
-      { path: 'a.txt', content: 'x' },
+      { file_path: 'a.txt', content: 'x' },
       { tools: [] },
     )
     expect(result.behavior).toBe('deny')
@@ -80,7 +80,7 @@ describe('createHeadlessCanUseTool', () => {
     const canUse = createHeadlessCanUseTool()
     const result = await canUse(
       createWriteLikeTool(),
-      { path: 'a.txt', content: 'x' },
+      { file_path: 'a.txt', content: 'x' },
       { tools: [] },
     )
     expect(result).toEqual({ behavior: 'allow' })
@@ -96,7 +96,7 @@ describe('createReplCanUseTool', () => {
     })
     const result = await canUse(
       createReadLikeTool(),
-      { path: 'a.txt', content: '' },
+      { file_path: 'a.txt', content: '' },
       { tools: [] },
     )
     expect(asked).toBe(false)
@@ -111,7 +111,7 @@ describe('createReplCanUseTool', () => {
     })
     const result = await canUse(
       createWriteLikeTool(),
-      { path: 'out.txt', content: 'hi' },
+      { file_path: 'out.txt', content: 'hi' },
       { tools: [] },
     )
     expect(result).toEqual({ behavior: 'allow' })
@@ -124,7 +124,7 @@ describe('createReplCanUseTool', () => {
     const canUse = createReplCanUseTool(async () => 'n')
     const result = await canUse(
       createWriteLikeTool(),
-      { path: 'out.txt', content: 'hi' },
+      { file_path: 'out.txt', content: 'hi' },
       { tools: [], abortController },
     )
     expect(result).toEqual({
@@ -144,7 +144,7 @@ describe('createReplCanUseTool', () => {
       name: 'Edit',
       description: 'edit',
       inputSchema: z.object({
-        path: z.string(),
+        file_path: z.string(),
         old_string: z.string(),
         new_string: z.string(),
       }),
@@ -163,12 +163,44 @@ describe('createReplCanUseTool', () => {
     }
     const result = await canUse(
       editTool,
-      { path: 'src/a.ts', old_string: 'foo', new_string: 'bar' },
+      { file_path: 'src/a.ts', old_string: 'foo', new_string: 'bar' },
       { tools: [] },
     )
     expect(result).toEqual({ behavior: 'allow' })
     expect(prompts[0]).toContain('Edit')
     expect(prompts[0]).toContain('src/a.ts')
     expect(prompts[0]).toContain('foo')
+  })
+
+  test('Bash confirmation summary includes the command preview', async () => {
+    const prompts: string[] = []
+    const canUse = createReplCanUseTool(async prompt => {
+      prompts.push(prompt)
+      return 'y'
+    })
+    const bashTool: Tool = {
+      name: 'Bash',
+      description: 'bash',
+      inputSchema: z.object({ command: z.string() }),
+      async call() {
+        return { data: 'ok' }
+      },
+      isReadOnly() {
+        return false
+      },
+      isConcurrencySafe() {
+        return false
+      },
+      isEnabled() {
+        return true
+      },
+    }
+    const result = await canUse(
+      bashTool,
+      { command: 'rm -rf build' },
+      { tools: [] },
+    )
+    expect(result).toEqual({ behavior: 'allow' })
+    expect(prompts[0]).toContain('rm -rf build')
   })
 })

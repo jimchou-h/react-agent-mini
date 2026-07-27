@@ -35,6 +35,7 @@ describe('discoverSkills', () => {
     expect(skills).toEqual([
       {
         name: 'review',
+        displayName: 'review',
         description: 'Review a change',
         body: '# Review workflow',
         path: join(skillDir, 'SKILL.md'),
@@ -54,6 +55,27 @@ describe('discoverSkills', () => {
     const skills = await discoverSkills(workspace)
 
     expect(skills.map(skill => skill.name)).toEqual(['teach'])
+  })
+
+  test('uses directory name as skill id when frontmatter name differs', async () => {
+    const skillDir = join(workspace, '.agents', 'skills', 'review')
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      [
+        '---',
+        'name: Display Review',
+        'description: Review a change',
+        '---',
+        'Body',
+      ].join('\n'),
+      'utf-8',
+    )
+
+    const skills = await discoverSkills(workspace)
+
+    expect(skills[0]?.name).toBe('review')
+    expect(skills[0]?.displayName).toBe('Display Review')
   })
 
   test('uses the directory name when frontmatter has no name', async () => {

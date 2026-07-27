@@ -29,7 +29,7 @@ describe('Write permission smoke', () => {
       type: 'tool_use',
       id: 'toolu_deny_w',
       name: 'Write',
-      input: { path: 'denied.txt', content: 'should-not-exist' },
+      input: { file_path: 'denied.txt', content: 'should-not-exist' },
     }
     const parent = createAssistantMessage([block])
 
@@ -51,7 +51,7 @@ describe('Write permission smoke', () => {
       type: 'tool_use',
       id: 'toolu_allow_w',
       name: 'Write',
-      input: { path: 'allowed.txt', content: 'written-ok' },
+      input: { file_path: 'allowed.txt', content: 'written-ok' },
     }
     const parent = createAssistantMessage([block])
 

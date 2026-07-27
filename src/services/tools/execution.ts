@@ -13,6 +13,8 @@ import { trace } from '../../utils/trace.js'
 export type ToolExecutionUpdate = {
   /** 包装为 user 角色的 tool_result 消息，待 yield 给 query 循环 */
   message: UserMessage
+  /** 在 tool_result 之前注入的 user 消息（如 Skill 正文） */
+  prependMessages?: UserMessage[]
 }
 
 function isErrorResult(message: UserMessage): boolean {
@@ -97,6 +99,7 @@ export async function runToolUse(
         text,
         result.isError === true,
       ),
+      prependMessages: result.prependMessages,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
