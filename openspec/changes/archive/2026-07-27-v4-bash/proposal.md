@@ -1,5 +1,7 @@
 ## Why
 
+> **归档说明**：本 change 已由 `v4-claude-align`（PR #66）吸收实现；保留归档供 blog 叙事与历史追溯。
+
 v3 已有 Read / Write / Edit / MCP，但没有 shell，Agent 仍无法跑测试、装依赖、看进程输出——「读—改」缺最后一环「跑」。对齐 claude-code `BashTool` 的精简子集，在现有写权限柱上接入 `Bash`，形成可演示的 coding 闭环，并适合写成系列下一篇 blog（钩子：Agent 终于有终端）。
 
 ## What Changes

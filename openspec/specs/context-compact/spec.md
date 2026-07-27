@@ -29,6 +29,20 @@ Context Budget：在每轮调用模型前对出站消息做确定性裁剪（too
 - **WHEN** messages 长度大于 `maxMessages`
 - **THEN** 出站列表长度不超过上限，且包含最新的 user/assistant/tool 轮次
 
+### Requirement: 阈值触发加重裁剪
+
+系统 SHALL 在出站消息估算规模低于配置阈值时避免丢弃整轮历史；超过阈值时才应用 microcompact 与/或消息保尾等加重策略。
+
+#### Scenario: 低于阈值不丢轮次
+
+- **WHEN** 出站估算字符数低于阈值且未触发其它硬限制
+- **THEN** 不因 `maxMessages` 丢弃较早轮次（单条超长 tool_result 仍可截断）
+
+#### Scenario: 超过阈值启用加重策略
+
+- **WHEN** 出站估算超过阈值且 compact 启用
+- **THEN** 系统先尝试 microcompact，必要时再应用保尾等策略，使出站规模回落
+
 ### Requirement: microcompact
 
 系统 SHALL 能将较早轮次中、属于 COMPACTABLE 工具（Read、Write、Edit、Bash、Grep、Glob 及同类内置工具）的超长 `tool_result` 内容替换为短占位提示，且不破坏 `tool_use` / `tool_result` 配对。占位文案 SHALL 对齐 claude-code（如 `[Old tool result content cleared]`），并可附带 `file_path` 线索（自对应 `tool_use.input` 读取）。

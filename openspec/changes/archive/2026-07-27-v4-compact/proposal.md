@@ -1,5 +1,7 @@
 ## Why
 
+> **归档说明**：本 change 已由 `v4-claude-align`（PR #66）吸收实现；保留归档供 blog 叙事与历史追溯。
+
 v3 compact 每轮按固定阈值裁剪，历史明明装得下也会被「扔」。长会话需要更聪明的 Context Budget：接近上限才动，且优先清掉可再生的旧 `tool_result`，而不是整段丢掉对话骨架。这正好接续 compact blog，写成「从扔掉到清可再生载荷」。
 
 ## What Changes

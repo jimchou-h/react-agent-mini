@@ -104,6 +104,15 @@
 - **WHEN** 调用 `getTools()`
 - **THEN** 返回列表中存在 `name === 'Edit'` 的工具
 
+### Requirement: Bash 工具注册
+
+`getTools()` SHALL 包含 `Bash` 工具。
+
+#### Scenario: 工具表含 Bash
+
+- **WHEN** 调用 `getTools()`
+- **THEN** 返回列表中存在 `name === 'Bash'` 的工具
+
 ### Requirement: 动态工具合并
 
 会话工具列表 SHALL 支持在内置工具之外合并外部来源（MCP）工具，且名称唯一。
