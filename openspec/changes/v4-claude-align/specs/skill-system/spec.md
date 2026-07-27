@@ -1,0 +1,38 @@
+## MODIFIED Requirements
+
+### Requirement: 技能发现
+
+系统 SHALL 扫描工作区下 `.agents/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`，解析为可调用技能列表。技能的**调用 ID** SHALL 为包含 `SKILL.md` 的目录名；frontmatter 中的 `name` 仅作展示名（displayName），不作为 `Skill` 工具入参。
+
+#### Scenario: 发现本地 skill
+
+- **WHEN** 存在 `.agents/skills/foo/SKILL.md` 且 frontmatter 含 `name: display-foo`
+- **THEN** 技能列表包含调用 ID `foo`；system 摘要可展示 `display-foo`
+
+#### Scenario: 无 skills 目录
+
+- **WHEN** 两个扫描根目录均不存在
+- **THEN** 技能列表为空，系统仍可正常启动
+
+### Requirement: Skill 工具
+
+系统 SHALL 提供 `Skill` 工具，接受技能名称（目录名）与可选 `args`，加载技能正文。技能正文 SHALL 通过会话消息注入通道提供给模型；`tool_result` SHALL 为短确认文案（非全文正文）。
+
+#### Scenario: 加载已知技能
+
+- **WHEN** 模型调用 `Skill` 且 `skill` 为已发现目录名
+- **THEN** 技能正文进入注入通道，且 `tool_result` 为短确认文案（非错误）
+
+#### Scenario: 未知技能
+
+- **WHEN** 模型调用 `Skill` 且名称未注册
+- **THEN** `tool_result` 标记为错误，说明技能不存在
+
+### Requirement: 可用技能提示
+
+系统 SHALL 在 system prompt（或等价通道）中提供可用技能名称摘要，便于模型决定何时调用 `Skill`。
+
+#### Scenario: 列表出现在 system 中
+
+- **WHEN** 至少发现一个 skill 且已启用 project system prompt
+- **THEN** system 内容包含该技能的调用 ID（及可选 displayName / 描述）

@@ -121,9 +121,10 @@ describe('toolsToOpenAI', () => {
   test('includes all registered tool definitions with JSON schema', () => {
     const tools = toolsToOpenAI(getTools())
 
-    expect(tools).toHaveLength(7)
+    expect(tools).toHaveLength(8)
     const names = tools.map(t => t.function.name).sort()
     expect(names).toEqual([
+      'Bash',
       'Echo',
       'Edit',
       'Glob',
@@ -146,11 +147,11 @@ describe('toolsToOpenAI', () => {
     expect(read?.function.parameters).toMatchObject({
       type: 'object',
       properties: {
-        path: { type: 'string' },
+        file_path: { type: 'string' },
         offset: { type: 'number' },
         limit: { type: 'number' },
       },
-      required: ['path'],
+      required: ['file_path'],
     })
 
     const grep = tools.find(t => t.function.name === 'Grep')

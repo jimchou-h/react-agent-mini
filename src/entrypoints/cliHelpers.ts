@@ -72,8 +72,8 @@ export function isMockMode(argv: string[]): boolean {
  * @example `[工具] Read: README.md`
  */
 export function formatToolStartStatus(block: ToolUseBlock): string {
-  if (block.name === 'Read' && typeof block.input.path === 'string') {
-    return `[工具] Read: ${block.input.path}`
+  if (block.name === 'Read' && typeof block.input.file_path === 'string') {
+    return `[工具] Read: ${block.input.file_path}`
   }
 
   if (block.name === 'Echo' && typeof block.input.message === 'string') {
@@ -98,6 +98,12 @@ export function formatToolStartStatus(block: ToolUseBlock): string {
 
   if (block.name === 'Edit' && typeof block.input.path === 'string') {
     return `[工具] Edit: ${block.input.path}`
+  }
+
+  if (block.name === 'Bash' && typeof block.input.command === 'string') {
+    const command = block.input.command
+    const preview = command.length > 60 ? `${command.slice(0, 60)}…` : command
+    return `[工具] Bash: ${preview}`
   }
 
   return `[工具] ${block.name}`

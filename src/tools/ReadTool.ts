@@ -7,13 +7,13 @@ import type { Tool } from '../Tool.js'
 export const MAX_READ_BYTES = 100 * 1024
 
 const readInputSchema = z.object({
-  path: z.string().describe('要读取的文件路径（相对 cwd 或绝对路径）'),
+  file_path: z.string().describe('要读取的文件路径（相对 cwd 或绝对路径）'),
   offset: z
     .number()
     .int()
-    .positive()
+    .nonnegative()
     .optional()
-    .describe('起始行号（1-based），与 limit 一起分段读取'),
+    .describe('起始行号（1-based，0 视为 1），与 limit 一起分段读取'),
   limit: z
     .number()
     .int()
@@ -27,6 +27,25 @@ const readInputSchema = z.object({
  *
  * 防止 `../../etc/passwd` 等路径穿越；与 claude-code Read 工具策略一致。
  */
+function splitLines(content: string): string[] {
+  const lines = content.split(/\r?\n/)
+  if (content.endsWith('\n') || content.endsWith('\r\n')) {
+    lines.pop()
+  }
+  return lines
+}
+
+function normalizeOffset(offset: number | undefined): number {
+  if (offset === undefined) {
+    return 1
+  }
+  return offset === 0 ? 1 : offset
+}
+
+function formatNumberedLines(lines: string[], startLine: number): string {
+  return lines.map((line, i) => `${startLine + i}\t${line}`).join('\n')
+}
+
 export function resolvePathUnderCwd(
   inputPath: string,
   cwd = process.cwd(),
@@ -52,7 +71,7 @@ export const ReadTool: Tool<typeof readInputSchema> = {
   inputSchema: readInputSchema,
 
   async call(args) {
-    const filePath = resolvePathUnderCwd(args.path)
+    const filePath = resolvePathUnderCwd(args.file_path)
 
     let fileStat
     try {
@@ -63,13 +82,13 @@ export const ReadTool: Tool<typeof readInputSchema> = {
           ? String((err as NodeJS.ErrnoException).code)
           : ''
       if (code === 'ENOENT') {
-        throw new Error(`文件不存在: ${args.path}`)
+        throw new Error(`文件不存在: ${args.file_path}`)
       }
       throw err
     }
 
     if (!fileStat.isFile()) {
-      throw new Error(`不是普通文件: ${args.path}`)
+      throw new Error(`不是普通文件: ${args.file_path}`)
     }
 
     if (fileStat.size > MAX_READ_BYTES) {
@@ -79,23 +98,18 @@ export const ReadTool: Tool<typeof readInputSchema> = {
     }
 
     const content = await readFile(filePath, 'utf-8')
+    const lines = splitLines(content)
+    const startLine = normalizeOffset(args.offset)
 
     if (args.offset !== undefined || args.limit !== undefined) {
-      const lines = content.split(/\r?\n/)
-      if (content.endsWith('\n') || content.endsWith('\r\n')) {
-        lines.pop()
-      }
-      const start = (args.offset ?? 1) - 1
+      const start = startLine - 1
       const end =
         args.limit !== undefined ? start + args.limit : lines.length
       const slice = lines.slice(start, end)
-      const numbered = slice
-        .map((line, i) => `${start + i + 1}|${line}`)
-        .join('\n')
-      return { data: numbered }
+      return { data: formatNumberedLines(slice, startLine) }
     }
 
-    return { data: content }
+    return { data: formatNumberedLines(lines, 1) }
   },
 
   isReadOnly() {

@@ -93,7 +93,7 @@ describe('codebase tools smoke', () => {
             type: 'tool_use',
             id: 'toolu_read_1',
             name: 'Read',
-            input: { path: 'src/symbol.ts' },
+            input: { file_path: 'src/symbol.ts' },
           },
         ])
         return

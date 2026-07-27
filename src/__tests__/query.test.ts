@@ -161,7 +161,7 @@ describe('query', () => {
             type: 'tool_use',
             id: 'toolu_read_1',
             name: 'Read',
-            input: { path: 'README.md' },
+            input: { file_path: 'README.md' },
           },
         ])
         return

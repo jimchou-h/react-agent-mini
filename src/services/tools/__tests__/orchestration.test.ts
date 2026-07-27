@@ -74,7 +74,7 @@ describe('runTools', () => {
         type: 'tool_use',
         id: 'toolu_read_escape',
         name: 'Read',
-        input: { path: '../../outside.txt' },
+        input: { file_path: '../../outside.txt' },
       },
     ]
     const parent = createAssistantMessage([
