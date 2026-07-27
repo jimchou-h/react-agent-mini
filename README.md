@@ -97,9 +97,13 @@ REPL 内可用：
 Skill({ "skill": "echo-demo" })
 ```
 
-### MCP（stdio 外部工具）
+### MCP（stdio 外部工具 + Resources + Prompts）
 
-项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径，支持逗号分隔多文件合并）即可在启动时连接 stdio MCP server，工具以 `mcp__<server>__<tool>` 名称合并进会话。若 `server` 或 `tool` 名中包含 `.` 或空格，公开工具名会先规范化为 `_`（例如 `my.server` → `my_server`）。
+项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径，支持逗号分隔多文件合并）即可在启动时连接 stdio MCP server：
+
+- **Tools**：以 `mcp__<server>__<tool>` 合并进会话（`.` / 空格 → `_`）
+- **Resources**：server 声明 `resources` 时，追加 `ListMcpResourcesTool` / `ReadMcpResourceTool` 供模型 list/read
+- **Prompts**：server 声明 `prompts` 时，REPL 可用 `/server:prompt args`（或 `/server:prompt (MCP) args`）拉取模板并注入当前 turn（headless 不自动执行 slash）
 
 博客分两篇：
 
@@ -116,6 +120,8 @@ node examples/mcp-tour-server/how-to-host.mjs
 node examples/mcp-calc-server/smoke.mjs
 cp .mcp.json.example .mcp.json
 bun run dev   # 问：用计算器算 17+25
+
+# tour server + REPL：/tour:plan_trip (MCP) Tokyo 3
 ```
 
 配置模板（与 `.mcp.json.example` 相同）：
@@ -136,7 +142,9 @@ bun run dev   # 问：用计算器算 17+25
 | 无配置文件 | 跳过 MCP，仅内置工具（与 v2 一致） |
 | 某 server 连接失败 | stderr 警告并跳过该 server |
 | 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL y/n；headless 需 `ALLOW_WRITE=1`） |
-| 限制 | Agent 仅接 stdio Tools；完整六大能力见概念篇与 `examples/mcp-tour-server` |
+| Resources | 只读工具；read 失败返回错误 tool_result |
+| Prompts | 仅 REPL slash；不经 Skill 工具 |
+| 限制 | 仅 stdio；无 SSE/OAuth/Sampling/`resources/subscribe` |
 
 ### Mock 单次问答（无需 API Key）
 

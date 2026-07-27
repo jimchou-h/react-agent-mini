@@ -1,11 +1,25 @@
 import type { Tools } from '../../Tool.js'
+import { getMcpResourceTools } from '../../tools/McpResourceTools.js'
 import { getTools } from '../../tools/index.js'
+import type { McpSession } from './client.js'
 import { connectMcpSession, mergeTools } from './client.js'
+import type { McpConnectedClient, McpSlashCommand } from './types.js'
 import { loadMcpConfig } from './config.js'
 
 export type LoadedMcp = {
   tools: Tools
+  clients: McpConnectedClient[]
+  commands: McpSlashCommand[]
+  hasResources: boolean
   close: () => Promise<void>
+}
+
+const EMPTY_MCP: LoadedMcp = {
+  tools: [],
+  clients: [],
+  commands: [],
+  hasResources: false,
+  close: async () => {},
 }
 
 /**
@@ -24,17 +38,28 @@ export async function loadMcpTools(options?: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     ;(warn ?? ((m: string) => console.error(m)))(`警告: ${msg}；已跳过 MCP`)
-    return { tools: [], close: async () => {} }
+    return EMPTY_MCP
   }
 
   if (!config || Object.keys(config.mcpServers).length === 0) {
-    return { tools: [], close: async () => {} }
+    return EMPTY_MCP
   }
 
   return connectMcpSession(config, { warn, cwd })
 }
 
-/** builtin + MCP 合并后的会话工具表 */
-export function sessionTools(mcpTools: Tools = []): Tools {
-  return mergeTools(getTools(), mcpTools)
+/** builtin + MCP 合并后的会话工具表（含 resource 工具） */
+export function sessionTools(mcp: LoadedMcp): Tools
+export function sessionTools(mcpTools: Tools): Tools
+export function sessionTools(mcp: LoadedMcp | Tools = []): Tools {
+  if (Array.isArray(mcp)) {
+    return mergeTools(getTools(), mcp)
+  }
+
+  const loaded = mcp as LoadedMcp
+  let merged = mergeTools(getTools(), loaded.tools)
+  if (loaded.hasResources) {
+    merged = mergeTools(merged, getMcpResourceTools())
+  }
+  return merged
 }

@@ -9,7 +9,7 @@ import { query } from '../query.js'
 import { QueryEngine } from '../QueryEngine.js'
 import type { DiscoveredSkill } from '../skills/discover.js'
 import { loadSessionContext } from '../skills/systemPrompt.js'
-import type { Tools } from '../Tool.js'
+import type { Tools, ToolUseContext } from '../Tool.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createHeadlessCanUseTool, createReplCanUseTool } from '../permissions/canUseTool.js'
 import { loadMcpTools, sessionTools } from '../services/mcp/load.js'
@@ -57,9 +57,11 @@ async function runHeadless(
   tools: Tools,
   systemPrompt?: string,
   skills?: readonly DiscoveredSkill[],
+  mcpClients?: ToolUseContext['mcpClients'],
 ): Promise<void> {
   const context = {
     ...createMinimalToolContext(tools, skills),
+    mcpClients,
     canUseTool: createHeadlessCanUseTool(),
   }
   const messages = [createUserMessage(prompt)]
@@ -87,7 +89,7 @@ async function main(): Promise<void> {
       loadMcpTools(),
     ])
     closeMcp = mcp.close
-    const tools = sessionTools(mcp.tools)
+    const tools = sessionTools(mcp)
 
     if (mode === 'pipe') {
       const prompt = await readStdin()
@@ -95,7 +97,7 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt, tools, systemPrompt, skills)
+      await runHeadless(prompt, tools, systemPrompt, skills, mcp.clients)
       return
     }
 
@@ -105,7 +107,7 @@ async function main(): Promise<void> {
         printUsage()
         process.exit(1)
       }
-      await runHeadless(prompt, tools, systemPrompt, skills)
+      await runHeadless(prompt, tools, systemPrompt, skills, mcp.clients)
       return
     }
 
@@ -118,12 +120,16 @@ async function main(): Promise<void> {
       tools,
       toolUseContext: {
         ...createMinimalToolContext(tools, skills),
+        mcpClients: mcp.clients,
         canUseTool: createReplCanUseTool(ask),
       },
       systemPrompt,
     })
     try {
-      await runRepl(engine, rl)
+      await runRepl(engine, rl, {
+        mcpCommands: mcp.commands,
+        mcpClients: mcp.clients,
+      })
     } finally {
       rl.close()
     }

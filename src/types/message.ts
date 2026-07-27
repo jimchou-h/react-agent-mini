@@ -54,6 +54,8 @@ export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock
 export type UserMessage = {
   type: 'user'
   content: ContentBlock[]
+  /** MCP prompt 等注入消息；不参与用户原文展示 */
+  meta?: boolean
 }
 
 /**

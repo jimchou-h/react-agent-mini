@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import type { AssistantMessage, UserMessage } from './types/message.js'
 import type { DiscoveredSkill } from './skills/discover.js'
+import type { McpConnectedClient } from './services/mcp/types.js'
 
 export type CanUseToolResult =
   | { behavior: 'allow' }
@@ -29,6 +30,8 @@ export type ToolUseContext = {
   canUseTool?: CanUseTool
   /** 本轮 query 的中止控制器；用户拒绝写操作时 abort，结束本轮 */
   abortController?: AbortController
+  /** 已连接 MCP clients（resource 工具路由） */
+  mcpClients?: readonly McpConnectedClient[]
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */

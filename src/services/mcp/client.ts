@@ -3,14 +3,18 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { Tool, Tools } from '../../Tool.js'
 import { adaptMcpTool } from './adapter.js'
 import type { McpConfig, McpServerConfig } from './config.js'
+import {
+  fetchCommandsForClient,
+  fetchResourcesForClient,
+  sessionHasResources,
+} from './fetch.js'
+import type { McpConnectedClient, McpSlashCommand } from './types.js'
 
 export type McpSession = {
   tools: Tools
-  close: () => Promise<void>
-}
-
-type ConnectedServer = {
-  client: Client
+  clients: McpConnectedClient[]
+  commands: McpSlashCommand[]
+  hasResources: boolean
   close: () => Promise<void>
 }
 
@@ -31,13 +35,15 @@ export async function connectMcpSession(
 ): Promise<McpSession> {
   const warn = options?.warn ?? ((msg: string) => console.error(msg))
   const cwd = options?.cwd ?? process.cwd()
-  const connections: ConnectedServer[] = []
+  const clients: McpConnectedClient[] = []
   const tools: Tool[] = []
+  const commands: McpSlashCommand[] = []
 
   for (const [serverId, serverConfig] of Object.entries(config.mcpServers)) {
     try {
       const connected = await connectOneServer(serverId, serverConfig, cwd)
-      connections.push(connected)
+      clients.push(connected)
+
       const listed = await withTimeout(
         connected.client.listTools(),
         CONNECT_TIMEOUT_MS,
@@ -54,6 +60,9 @@ export async function connectMcpSession(
           }),
         )
       }
+
+      commands.push(...(await fetchCommandsForClient(connected, { warn })))
+      await fetchResourcesForClient(connected, { warn })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       warn(`警告: MCP server "${serverId}" 连接失败，已跳过 — ${msg}`)
@@ -62,8 +71,11 @@ export async function connectMcpSession(
 
   return {
     tools,
+    clients,
+    commands,
+    hasResources: sessionHasResources(clients),
     async close() {
-      await Promise.allSettled(connections.map(c => c.close()))
+      await Promise.allSettled(clients.map(c => c.close()))
     },
   }
 }
@@ -72,7 +84,7 @@ async function connectOneServer(
   serverId: string,
   serverConfig: McpServerConfig,
   cwd: string,
-): Promise<ConnectedServer> {
+): Promise<McpConnectedClient> {
   const transport = new StdioClientTransport({
     command: serverConfig.command,
     args: serverConfig.args,
@@ -92,8 +104,12 @@ async function connectOneServer(
     `MCP 连接超时 (${serverId})`,
   )
 
+  const capabilities = client.getServerCapabilities()
+
   return {
+    serverId,
     client,
+    capabilities,
     async close() {
       try {
         await client.close()

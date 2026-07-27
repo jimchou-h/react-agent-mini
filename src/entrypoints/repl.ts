@@ -1,4 +1,7 @@
 import type { QueryEngine } from '../QueryEngine.js'
+import { loadServerResourcesAsMetaMessages } from '../services/mcp/fetch.js'
+import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
+import { formatMcpHelpLines, parseMcpSlashCommand } from '../services/mcp/promptSlash.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 
 /** 空行（仅空白）不发起 query */
@@ -11,10 +14,18 @@ export type SlashCommand =
   | { type: 'clear' }
   | { type: 'help' }
 
-const HELP_TEXT = `可用命令:
+const BASE_HELP_TEXT = `可用命令:
   /exit, /quit  — 退出 REPL
   /clear        — 清空会话历史
   /help         — 显示本帮助`
+
+export function buildHelpText(mcpCommands: readonly McpSlashCommand[] = []): string {
+  const mcpLines = formatMcpHelpLines(mcpCommands)
+  if (mcpLines.length === 0) {
+    return BASE_HELP_TEXT
+  }
+  return `${BASE_HELP_TEXT}\n\nMCP prompts:\n${mcpLines.join('\n')}`
+}
 
 /**
  * 解析本地 slash 命令；普通输入或未知 `/xxx` 返回 null（未知不送 slash，也不当模型输入——见 session）
@@ -46,6 +57,9 @@ export type ReplSessionDeps = {
   onAfterTurn?: () => void
   /** 测试可捕获帮助/确认输出 */
   print?: (text: string) => void
+  mcpCommands?: readonly McpSlashCommand[]
+  /** 已连接 MCP clients；slash 时用于挂载同 server 的 Resources */
+  mcpClients?: readonly McpConnectedClient[]
 }
 
 /**
@@ -54,6 +68,8 @@ export type ReplSessionDeps = {
 export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
   const consume = deps.consume ?? consumeQueryStream
   const print = deps.print ?? ((text: string) => console.log(text))
+  const mcpCommands = deps.mcpCommands ?? []
+  const mcpClients = deps.mcpClients ?? []
 
   for await (const line of deps.lines) {
     if (isSkippableReplLine(line)) {
@@ -74,12 +90,51 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       continue
     }
     if (slash?.type === 'help') {
-      print(HELP_TEXT)
+      print(buildHelpText(mcpCommands))
       deps.onAfterTurn?.()
       continue
     }
+
+    const mcpSlash = parseMcpSlashCommand(trimmed, mcpCommands)
+    if (mcpSlash) {
+      try {
+        // Host：先挂载该 server 的 Resources，再注入 Prompt（对齐 how-to-host）
+        const resources = await loadServerResourcesAsMetaMessages(
+          mcpClients,
+          mcpSlash.command.serverId,
+          { warn: msg => print(msg) },
+        )
+        const promptMessages = await mcpSlash.command.run(mcpSlash.argsLine)
+        if (resources.length > 0) {
+          print(
+            `已挂载 MCP Resource ×${resources.length}（server=${mcpSlash.command.serverId}）`,
+          )
+        }
+        await consume(
+          deps.engine.runTurn('', {
+            injectBefore: [...resources, ...promptMessages],
+          }),
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        print(`MCP prompt 失败: ${msg}`)
+      }
+      deps.onAfterTurn?.()
+      continue
+    }
+
     if (isSlashLine(trimmed)) {
-      print('未知命令。输入 /help 查看可用命令。')
+      if (trimmed.includes(':') && mcpCommands.length > 0) {
+        print(
+          `未知 MCP 命令。可用：\n${formatMcpHelpLines(mcpCommands).join('\n')}\n或输入 /help`,
+        )
+      } else if (trimmed.includes(':') && mcpCommands.length === 0) {
+        print(
+          '未知命令。当前未注册任何 MCP prompt（server 需声明 prompts 能力）。输入 /help 查看可用命令。',
+        )
+      } else {
+        print('未知命令。输入 /help 查看可用命令。')
+      }
       deps.onAfterTurn?.()
       continue
     }
@@ -124,11 +179,17 @@ export async function* linesFromReadlineQuestions(
 export async function runRepl(
   engine: QueryEngine,
   existingRl?: import('node:readline/promises').Interface,
+  options?: {
+    mcpCommands?: readonly McpSlashCommand[]
+    mcpClients?: readonly McpConnectedClient[]
+  },
 ): Promise<void> {
   if (existingRl) {
     await runReplSession({
       engine,
       lines: linesFromReadlineQuestions(existingRl),
+      mcpCommands: options?.mcpCommands,
+      mcpClients: options?.mcpClients,
     })
     return
   }
@@ -141,6 +202,8 @@ export async function runRepl(
     await runReplSession({
       engine,
       lines: linesFromReadlineQuestions(rl),
+      mcpCommands: options?.mcpCommands,
+      mcpClients: options?.mcpClients,
     })
   } finally {
     rl.close()
