@@ -81,7 +81,7 @@ describe('ReadTool', () => {
     await writeFile('sample.txt', 'hello', 'utf-8')
 
     await expect(
-      ReadTool.call({ path: 'sample.txt' } as { file_path: string }, {
+      ReadTool.call({ path: 'sample.txt' } as unknown as { file_path: string }, {
         tools: [ReadTool],
       }),
     ).rejects.toThrow()

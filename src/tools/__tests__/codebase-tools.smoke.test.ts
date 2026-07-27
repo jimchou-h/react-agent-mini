@@ -60,7 +60,7 @@ describe('codebase tools smoke', () => {
             b =>
               b.type === 'tool_result' &&
               !b.is_error &&
-              b.content.includes('SMOKE_SYMBOL'),
+              b.content.includes('symbol.ts'),
           ),
       )
 

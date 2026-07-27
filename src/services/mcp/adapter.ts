@@ -15,8 +15,12 @@ export type McpCallTool = (
 ) => Promise<unknown>
 
 /** 公开工具名：`mcp__<server>__<tool>`，避免与 builtin 冲突 */
+export function normalizeNameForMCP(name: string): string {
+  return name.replace(/[.\s]/g, '_')
+}
+
 export function mcpPublicToolName(serverId: string, toolName: string): string {
-  return `mcp__${serverId}__${toolName}`
+  return `mcp__${normalizeNameForMCP(serverId)}__${normalizeNameForMCP(toolName)}`
 }
 
 /**

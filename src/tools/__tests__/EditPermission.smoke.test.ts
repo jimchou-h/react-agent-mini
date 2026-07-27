@@ -38,7 +38,7 @@ describe('Edit permission smoke', () => {
       id: 'toolu_deny_e',
       name: 'Edit',
       input: {
-        path: 'target.txt',
+        file_path: 'target.txt',
         old_string: 'beta',
         new_string: 'BETA',
       },
@@ -64,7 +64,7 @@ describe('Edit permission smoke', () => {
       id: 'toolu_allow_e',
       name: 'Edit',
       input: {
-        path: 'target.txt',
+        file_path: 'target.txt',
         old_string: 'beta',
         new_string: 'BETA',
       },
@@ -90,7 +90,7 @@ describe('Edit permission smoke', () => {
       id: 'toolu_headless_e',
       name: 'Edit',
       input: {
-        path: 'target.txt',
+        file_path: 'target.txt',
         old_string: 'beta',
         new_string: 'BETA',
       },

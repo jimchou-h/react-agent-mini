@@ -31,7 +31,7 @@ export type QueryParams = {
   /** 最大工具轮次，默认 20；防止无限 tool 循环 */
   maxTurns?: number
   /** 可注入的依赖（测试用 mock callModel）；缺省走 productionDeps() */
-  deps?: QueryDeps
+  deps?: Partial<QueryDeps>
   /** 项目级 system prompt，每轮 callModel 透传 */
   systemPrompt?: string
   /** 出站消息裁剪配置；缺省用环境变量/内置默认值（见 compact 模块） */

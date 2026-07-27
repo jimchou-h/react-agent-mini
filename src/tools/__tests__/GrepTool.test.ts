@@ -19,11 +19,22 @@ describe('GrepTool', () => {
     await rm(testDir, { recursive: true, force: true })
   })
 
-  test('searches cwd for pattern and returns path with line numbers', async () => {
+  test('searches cwd for pattern and returns matching files by default', async () => {
     await writeFile('a.txt', 'hello world\nfoo bar\n', 'utf-8')
 
     const result = await GrepTool.call(
       { pattern: 'foo' },
+      { tools: [GrepTool] },
+    )
+
+    expect(result.data).toBe('a.txt')
+  })
+
+  test('content mode returns path with line numbers', async () => {
+    await writeFile('a.txt', 'hello world\nfoo bar\n', 'utf-8')
+
+    const result = await GrepTool.call(
+      { pattern: 'foo', output_mode: 'content' },
       { tools: [GrepTool] },
     )
 
@@ -37,7 +48,7 @@ describe('GrepTool', () => {
     await writeFile('out.ts', 'const TARGET = 2\n', 'utf-8')
 
     const result = await GrepTool.call(
-      { pattern: 'TARGET', path: 'src' },
+      { pattern: 'TARGET', path: 'src', output_mode: 'content' },
       { tools: [GrepTool] },
     )
 
@@ -61,7 +72,7 @@ describe('GrepTool', () => {
     await writeFile('many.txt', lines, 'utf-8')
 
     const result = await GrepTool.call(
-      { pattern: 'match-line', head_limit: 3 },
+      { pattern: 'match-line', head_limit: 3, output_mode: 'content' },
       { tools: [GrepTool] },
     )
 

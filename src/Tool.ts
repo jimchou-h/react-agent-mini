@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { AssistantMessage } from './types/message.js'
+import type { AssistantMessage, UserMessage } from './types/message.js'
 import type { DiscoveredSkill } from './skills/discover.js'
 
 export type CanUseToolResult =
@@ -44,6 +44,8 @@ export type ToolResult<T = unknown> = {
   data: T
   /** 为 true 时 runToolUse 将 tool_result 标为 is_error（如 MCP isError） */
   isError?: boolean
+  /** 在 tool_result 之前注入会话的附加上下文（如 Skill 正文） */
+  prependMessages?: UserMessage[]
 }
 
 /**

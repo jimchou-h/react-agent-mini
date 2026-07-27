@@ -23,17 +23,15 @@ export function createHeadlessCanUseTool(): CanUseTool {
 
 export type AskFn = (prompt: string) => Promise<string>
 
-/**
- * 用户拒绝写操作时的 tool_result 文案 — 对齐 claude-code REJECT_MESSAGE 语义
- */
-export const USER_REJECT_MESSAGE =
-  '用户拒绝了该工具调用（例如文件未被写入）。请停止当前操作，等待用户下一步指示。'
+/** 对齐 claude-code src/utils/messages.ts REJECT_MESSAGE */
+export const REJECT_MESSAGE =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed."
+
+/** @deprecated 使用 REJECT_MESSAGE */
+export const USER_REJECT_MESSAGE = REJECT_MESSAGE
 
 /**
  * REPL 权限策略：只读允许；写工具经 ask 确认（y/yes → allow）
- *
- * 用户输入 n 时 deny，并 abort 本轮 AbortController，使 query 循环结束
- *（对齐 claude-code PermissionContext.cancelAndAbort）。
  */
 export function createReplCanUseTool(ask: AskFn): CanUseTool {
   return async (tool, input, context: ToolUseContext) => {
@@ -48,7 +46,7 @@ export function createReplCanUseTool(ask: AskFn): CanUseTool {
     }
 
     context.abortController?.abort('user_reject')
-    return { behavior: 'deny', message: USER_REJECT_MESSAGE }
+    return { behavior: 'deny', message: REJECT_MESSAGE }
   }
 }
 
@@ -57,22 +55,34 @@ function formatWriteSummary(tool: Tool, input: unknown): string {
     input && typeof input === 'object'
       ? (input as Record<string, unknown>)
       : {}
-  const path =
-    typeof record.path === 'string' ? record.path : undefined
+  const filePath =
+    typeof record.file_path === 'string'
+      ? record.file_path
+      : typeof record.path === 'string'
+        ? record.path
+        : undefined
 
-  if (tool.name === 'Edit' && path) {
+  if (tool.name === 'Edit' && filePath) {
     const oldString =
       typeof record.old_string === 'string' ? record.old_string : ''
     const preview =
       oldString.length > 40 ? `${oldString.slice(0, 40)}…` : oldString
-    return `允许 Edit 修改 ${path}（替换「${preview}」）？[y/N] `
+    return `允许 Edit 修改 ${filePath}（替换「${preview}」）？[y/N] `
+  }
+
+  if (tool.name === 'Bash') {
+    const command =
+      typeof record.command === 'string' ? record.command : ''
+    const preview =
+      command.length > 80 ? `${command.slice(0, 80)}…` : command
+    return `允许执行命令「${preview}」？[y/N] `
   }
 
   const content =
     typeof record.content === 'string' ? record.content : ''
   const bytes = Buffer.byteLength(content, 'utf-8')
-  if (path) {
-    return `允许 ${tool.name} 写入 ${path}（${bytes} 字节）？[y/N] `
+  if (filePath) {
+    return `允许 ${tool.name} 写入 ${filePath}（${bytes} 字节）？[y/N] `
   }
   return `允许调用非只读工具 ${tool.name}？[y/N] `
 }

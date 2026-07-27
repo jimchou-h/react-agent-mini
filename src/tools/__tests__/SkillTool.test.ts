@@ -7,7 +7,7 @@ import { getTools } from '../index.js'
 import { SkillTool } from '../SkillTool.js'
 
 describe('SkillTool', () => {
-  test('returns the body of a discovered skill through tool_result', async () => {
+  test('injects skill body and returns a short tool_result', async () => {
     const block: ToolUseBlock = {
       type: 'tool_use',
       id: 'toolu_skill_1',
@@ -23,6 +23,7 @@ describe('SkillTool', () => {
         skills: [
           {
             name: 'review',
+            displayName: 'Display Review',
             description: 'Review changes',
             body: '# Review workflow',
             path: '/workspace/.agents/skills/review/SKILL.md',
@@ -35,9 +36,16 @@ describe('SkillTool', () => {
       {
         type: 'tool_result',
         tool_use_id: 'toolu_skill_1',
-        content: '# Review workflow',
+        content: 'Launching skill: review',
       },
     ])
+    expect(update.prependMessages).toHaveLength(1)
+    const injected = update.prependMessages?.[0]?.content[0]
+    expect(injected?.type).toBe('text')
+    if (injected?.type === 'text') {
+      expect(injected.text).toContain('# Review workflow')
+      expect(injected.text).toContain('Base directory for this skill:')
+    }
   })
 
   test('returns an error tool_result for an unknown skill', async () => {

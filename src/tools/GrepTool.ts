@@ -4,8 +4,8 @@ import { z } from 'zod'
 import type { Tool } from '../Tool.js'
 import { resolvePathUnderCwd } from './ReadTool.js'
 
-/** Grep 默认最多返回的匹配行数 */
-export const DEFAULT_GREP_HEAD_LIMIT = 50
+/** Grep 默认 head_limit（0 = 不限） */
+export const DEFAULT_GREP_HEAD_LIMIT = 250
 
 /** Grep 输出字符上限（32KB） */
 export const MAX_GREP_OUTPUT_CHARS = 32 * 1024
@@ -14,24 +14,29 @@ const grepInputSchema = z.object({
   pattern: z.string().describe('要搜索的正则表达式'),
   path: z.string().optional().describe('搜索根路径（相对 cwd，默认 cwd）'),
   glob: z.string().optional().describe('仅匹配该 glob 的文件名'),
+  output_mode: z
+    .enum(['content', 'files_with_matches', 'count'])
+    .optional()
+    .describe(
+      '输出模式：content 匹配行；files_with_matches 文件列表（默认）；count 计数',
+    ),
   head_limit: z
     .number()
     .int()
-    .positive()
+    .nonnegative()
     .optional()
-    .describe('最多返回的匹配行数（默认 50）'),
+    .describe('最多返回条目数（默认 250；0 表示不限）'),
 })
 
+type GrepOutputMode = 'content' | 'files_with_matches' | 'count'
+
 /**
- * Grep 工具 — 在 cwd 子树内按正则搜索文件内容
- *
- * 实现：纯 JS 遍历 + RegExp（不依赖系统 rg，便于测试与 Windows）。
- * 结果格式对齐 ripgrep：`path:line:content`
+ * Grep 工具 — 在 cwd 子树内按正则搜索
  */
 export const GrepTool: Tool<typeof grepInputSchema> = {
   name: 'Grep',
   description:
-    '在当前工作目录内按正则搜索文件内容，返回匹配行（路径:行号:内容）',
+    '在当前工作目录内按正则搜索。默认返回匹配文件列表（files_with_matches）',
   inputSchema: grepInputSchema,
 
   async call(args) {
@@ -48,16 +53,55 @@ export const GrepTool: Tool<typeof grepInputSchema> = {
       throw new Error(`无效的正则表达式: ${args.pattern}`)
     }
 
+    const outputMode: GrepOutputMode = args.output_mode ?? 'files_with_matches'
     const headLimit = args.head_limit ?? DEFAULT_GREP_HEAD_LIMIT
-    const matches: string[] = []
-    let truncated = false
+    const unlimited = headLimit === 0
 
     const files = rootStat.isFile()
       ? [root]
       : await listFilesRecursive(root, args.glob)
 
+    if (outputMode === 'files_with_matches') {
+      const matchedFiles: string[] = []
+      let truncated = false
+      for (const filePath of files) {
+        if (!unlimited && matchedFiles.length >= headLimit) {
+          truncated = true
+          break
+        }
+        if (await fileHasMatch(filePath, regex)) {
+          matchedFiles.push(
+            relative(process.cwd(), filePath).replace(/\\/g, '/'),
+          )
+        }
+      }
+      return { data: formatOutput(matchedFiles.join('\n'), truncated, headLimit) }
+    }
+
+    if (outputMode === 'count') {
+      const counts: string[] = []
+      let truncated = false
+      for (const filePath of files) {
+        if (!unlimited && counts.length >= headLimit) {
+          truncated = true
+          break
+        }
+        const count = await countMatches(filePath, regex)
+        if (count > 0) {
+          const displayPath = relative(process.cwd(), filePath).replace(
+            /\\/g,
+            '/',
+          )
+          counts.push(`${displayPath}:${count}`)
+        }
+      }
+      return { data: formatOutput(counts.join('\n'), truncated, headLimit) }
+    }
+
+    const matches: string[] = []
+    let truncated = false
     for (const filePath of files) {
-      if (matches.length >= headLimit) {
+      if (!unlimited && matches.length >= headLimit) {
         truncated = true
         break
       }
@@ -73,7 +117,7 @@ export const GrepTool: Tool<typeof grepInputSchema> = {
       const displayPath = relative(process.cwd(), filePath).replace(/\\/g, '/')
 
       for (let i = 0; i < lines.length; i++) {
-        if (matches.length >= headLimit) {
+        if (!unlimited && matches.length >= headLimit) {
           truncated = true
           break
         }
@@ -81,23 +125,13 @@ export const GrepTool: Tool<typeof grepInputSchema> = {
         if (regex.test(line)) {
           matches.push(`${displayPath}:${i + 1}:${line}`)
         }
-        // RegExp with /g keeps lastIndex — reset per line for safety
         regex.lastIndex = 0
       }
     }
 
-    let output = matches.join('\n')
-    if (truncated) {
-      output += `\n…（已截断，最多 ${headLimit} 条）`
+    return {
+      data: formatOutput(matches.join('\n') || '无匹配', truncated, headLimit),
     }
-
-    if (output.length > MAX_GREP_OUTPUT_CHARS) {
-      output =
-        output.slice(0, MAX_GREP_OUTPUT_CHARS) +
-        `\n…（输出超过 ${MAX_GREP_OUTPUT_CHARS / 1024}KB，已截断）`
-    }
-
-    return { data: output || '无匹配' }
   },
 
   isReadOnly() {
@@ -111,6 +145,55 @@ export const GrepTool: Tool<typeof grepInputSchema> = {
   isEnabled() {
     return true
   },
+}
+
+async function fileHasMatch(filePath: string, regex: RegExp): Promise<boolean> {
+  let content: string
+  try {
+    content = await readFile(filePath, 'utf-8')
+  } catch {
+    return false
+  }
+  for (const line of content.split(/\r?\n/)) {
+    if (regex.test(line)) {
+      regex.lastIndex = 0
+      return true
+    }
+    regex.lastIndex = 0
+  }
+  return false
+}
+
+async function countMatches(filePath: string, regex: RegExp): Promise<number> {
+  let content: string
+  try {
+    content = await readFile(filePath, 'utf-8')
+  } catch {
+    return 0
+  }
+  let count = 0
+  for (const line of content.split(/\r?\n/)) {
+    if (regex.test(line)) count++
+    regex.lastIndex = 0
+  }
+  return count
+}
+
+function formatOutput(
+  output: string,
+  truncated: boolean,
+  headLimit: number,
+): string {
+  let result = output
+  if (truncated && headLimit > 0) {
+    result += `\n…（已截断，最多 ${headLimit} 条）`
+  }
+  if (result.length > MAX_GREP_OUTPUT_CHARS) {
+    result =
+      result.slice(0, MAX_GREP_OUTPUT_CHARS) +
+      `\n…（输出超过 ${MAX_GREP_OUTPUT_CHARS / 1024}KB，已截断）`
+  }
+  return result
 }
 
 async function listFilesRecursive(
@@ -134,7 +217,6 @@ async function listFilesRecursive(
   return files
 }
 
-/** 极简 glob：仅支持 `*` 通配（如 `*.ts`） */
 function matchSimpleGlob(name: string, pattern: string): boolean {
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')

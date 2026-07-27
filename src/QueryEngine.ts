@@ -8,7 +8,7 @@ import { createUserMessage } from './utils/messages.js'
 export type QueryEngineParams = {
   tools: Tools
   toolUseContext: ToolUseContext
-  deps?: QueryDeps
+  deps?: Partial<QueryDeps>
   maxTurns?: number
   systemPrompt?: string
 }
@@ -22,7 +22,7 @@ export type QueryEngineParams = {
 export class QueryEngine {
   readonly #tools: Tools
   readonly #toolUseContext: ToolUseContext
-  readonly #deps: QueryDeps | undefined
+  readonly #deps: Partial<QueryDeps> | undefined
   readonly #maxTurns: number | undefined
   readonly #systemPrompt: string | undefined
   #messages: Message[] = []

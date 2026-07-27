@@ -21,16 +21,16 @@ describe('Skill end-to-end', () => {
     async function* mockSkillThenReply(
       params: CallModelParams,
     ): AsyncGenerator<StreamEvent | AssistantMessage> {
-      const skillResult = params.messages
+      const skillLoaded = params.messages
         .filter(message => message.type === 'user')
         .flatMap(message => message.content)
-        .find(
+        .some(
           block =>
-            block.type === 'tool_result' &&
-            block.content.includes('Skill says:'),
+            block.type === 'text' &&
+            block.text.includes('Skill says:'),
         )
 
-      if (!skillResult) {
+      if (!skillLoaded) {
         expect(params.systemPrompt).toContain('echo-demo')
         yield createAssistantMessage([
           {
@@ -78,8 +78,8 @@ describe('Skill end-to-end', () => {
           event.type === 'user' &&
           event.content.some(
             block =>
-              block.type === 'tool_result' &&
-              block.content.includes('Skill says:'),
+              block.type === 'text' &&
+              block.text.includes('Skill says:'),
           ),
       ),
     ).toBe(true)

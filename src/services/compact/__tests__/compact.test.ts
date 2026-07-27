@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import type { Message } from '../../../types/message.js'
-import { compactMessages, TRUNCATION_NOTE } from '../compact.js'
+import { compactMessages, MICROCOMPACT_NOTE, TRUNCATION_NOTE } from '../compact.js'
 import {
   createAssistantMessage,
   createToolResultMessage,
@@ -10,7 +10,7 @@ import {
 function toolTurn(id: string, resultContent: string): Message[] {
   return [
     createAssistantMessage([
-      { type: 'tool_use', id, name: 'Read', input: { path: 'a.txt' } },
+      { type: 'tool_use', id, name: 'Read', input: { file_path: 'a.txt' } },
     ]),
     createToolResultMessage(id, resultContent),
   ]
@@ -104,9 +104,12 @@ describe('compactMessages maxMessages tail retention', () => {
     return messages
   }
 
+  /** 强制超过阈值，使保尾路径生效（v4：低于阈值不丢轮） */
+  const forceHeavy = { maxOutboundChars: 0 }
+
   test('drops oldest turns when over maxMessages', () => {
     const messages = conversation(10) // 40 条
-    const out = compactMessages(messages, { maxMessages: 12 })
+    const out = compactMessages(messages, { maxMessages: 12, ...forceHeavy })
 
     expect(out.length).toBeLessThanOrEqual(12)
     // 最新轮次完整保留
@@ -116,7 +119,7 @@ describe('compactMessages maxMessages tail retention', () => {
 
   test('trim boundary starts at a user text message (no orphan tool_result)', () => {
     const messages = conversation(10)
-    const out = compactMessages(messages, { maxMessages: 10 })
+    const out = compactMessages(messages, { maxMessages: 10, ...forceHeavy })
 
     const first = out[0]
     if (first.type !== 'user') throw new Error('expected user message first')
@@ -152,6 +155,7 @@ describe('compactMessages maxMessages tail retention', () => {
     const out = compactMessages(messages, {
       maxMessages: 8,
       maxToolResultChars: 500,
+      ...forceHeavy,
     })
 
     expect(out.length).toBeLessThanOrEqual(8)
@@ -161,6 +165,65 @@ describe('compactMessages maxMessages tail retention', () => {
     if (block.type !== 'tool_result') throw new Error('expected tool_result')
     expect(block.content).toContain(TRUNCATION_NOTE)
     expect(block.content.length).toBeLessThan(1000)
+  })
+})
+
+describe('compactMessages outbound threshold', () => {
+  function conversation(turns: number): Message[] {
+    const messages: Message[] = []
+    for (let i = 0; i < turns; i++) {
+      messages.push(createUserMessage(`问题${i}`))
+      messages.push(...toolTurn(`toolu_${i}`, `结果${i}`))
+      messages.push(
+        createAssistantMessage([{ type: 'text', text: `回答${i}` }]),
+      )
+    }
+    return messages
+  }
+
+  const prevThreshold = process.env.COMPACT_THRESHOLD_CHARS
+
+  afterEach(() => {
+    if (prevThreshold === undefined) delete process.env.COMPACT_THRESHOLD_CHARS
+    else process.env.COMPACT_THRESHOLD_CHARS = prevThreshold
+  })
+
+  test('below threshold does not drop turns via maxMessages', () => {
+    const messages = conversation(10) // 40 条，内容很短
+    const out = compactMessages(messages, {
+      maxMessages: 12,
+      maxOutboundChars: 1_000_000,
+    })
+
+    expect(out.length).toBe(messages.length)
+    expect(out).toBe(messages)
+  })
+
+  test('still truncates a single oversized tool_result below threshold', () => {
+    const messages: Message[] = [
+      createUserMessage('读大文件'),
+      ...toolTurn('toolu_bomb', 'z'.repeat(9000)),
+    ]
+    const out = compactMessages(messages, {
+      maxToolResultChars: 200,
+      maxOutboundChars: 1_000_000,
+    })
+
+    expect(out).not.toBe(messages)
+    const result = out[2]
+    if (result.type !== 'user') throw new Error('expected user message')
+    const block = result.content[0]
+    if (block.type !== 'tool_result') throw new Error('expected tool_result')
+    expect(block.content).toContain(TRUNCATION_NOTE)
+    expect(block.content.length).toBeLessThan(9000)
+  })
+
+  test('COMPACT_THRESHOLD_CHARS env sets the default threshold', () => {
+    process.env.COMPACT_THRESHOLD_CHARS = '50'
+    const messages = conversation(10)
+    // 短会话估算通常 > 50，应触发保尾
+    const out = compactMessages(messages, { maxMessages: 12 })
+    expect(out.length).toBeLessThanOrEqual(12)
   })
 })
 
@@ -234,5 +297,211 @@ describe('compactMessages TRACE', () => {
 
     compactMessages([createUserMessage('hi')], {})
     expect(lines.some(l => l.includes('compact.run'))).toBe(false)
+  })
+})
+describe('compactMessages microcompact', () => {
+  const prevCompact = process.env.COMPACT
+  const prevTrace = process.env.TRACE
+  const originalError = console.error
+
+  afterEach(() => {
+    if (prevCompact === undefined) delete process.env.COMPACT
+    else process.env.COMPACT = prevCompact
+    if (prevTrace === undefined) delete process.env.TRACE
+    else process.env.TRACE = prevTrace
+    console.error = originalError
+  })
+
+  function longHistory(): Message[] {
+    const messages: Message[] = []
+    for (let i = 0; i < 6; i++) {
+      messages.push(createUserMessage(`问题${i}`))
+      messages.push(
+        createAssistantMessage([
+          {
+            type: 'tool_use',
+            id: `toolu_m${i}`,
+            name: 'Read',
+            input: { file_path: `f${i}.txt` },
+          },
+        ]),
+      )
+      messages.push(
+        createToolResultMessage(`toolu_m${i}`, `BODY${i}:` + 'x'.repeat(800)),
+      )
+      messages.push(
+        createAssistantMessage([{ type: 'text', text: `回答${i}` }]),
+      )
+    }
+    return messages
+  }
+
+  test('replaces older oversized tool_results with placeholder and keeps recent window', () => {
+    const messages = longHistory()
+    const out = compactMessages(messages, {
+      maxOutboundChars: 0,
+      microKeepRecent: 2,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 100,
+    })
+
+    const results = out.flatMap(m =>
+      m.type === 'user'
+        ? m.content.filter(b => b.type === 'tool_result')
+        : [],
+    )
+    expect(results.length).toBe(6)
+
+    const early = results[0]
+    if (early.type !== 'tool_result') throw new Error('expected tool_result')
+    expect(early.content).toContain(MICROCOMPACT_NOTE)
+    expect(early.content).toContain('f0.txt')
+    expect(early.content.length).toBeLessThan(200)
+
+    const recent = results[5]
+    if (recent.type !== 'tool_result') throw new Error('expected tool_result')
+    expect(recent.content).toContain('BODY5:')
+    expect(recent.content).not.toContain(MICROCOMPACT_NOTE)
+  })
+
+  test('keeps tool_use / tool_result pairing after microcompact', () => {
+    const messages = longHistory()
+    const out = compactMessages(messages, {
+      maxOutboundChars: 0,
+      microKeepRecent: 1,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 100,
+    })
+
+    const toolUseIds = new Set(
+      out.flatMap(m =>
+        m.content.filter(b => b.type === 'tool_use').map(b => b.id),
+      ),
+    )
+    for (const m of out) {
+      for (const b of m.content) {
+        if (b.type === 'tool_result') {
+          expect(toolUseIds.has(b.tool_use_id)).toBe(true)
+        }
+      }
+    }
+  })
+
+  test('COMPACT=0 skips microcompact', () => {
+    process.env.COMPACT = '0'
+    const messages = longHistory()
+    const out = compactMessages(messages, {
+      maxOutboundChars: 0,
+      microKeepRecent: 1,
+      microMinChars: 100,
+    })
+    expect(out).toBe(messages)
+  })
+
+  test('combines microcompact with maxMessages tail retention', () => {
+    const messages = longHistory()
+    const out = compactMessages(messages, {
+      maxOutboundChars: 0,
+      microKeepRecent: 2,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 8,
+    })
+
+    expect(out.length).toBeLessThanOrEqual(8)
+    expect(messages.length).toBeGreaterThan(out.length)
+    const original = messages.find(
+      m =>
+        m.type === 'user' &&
+        m.content.some(
+          b => b.type === 'tool_result' && b.content.includes('BODY0:'),
+        ),
+    )
+    expect(original).toBeDefined()
+    if (original?.type === 'user') {
+      const block = original.content.find(b => b.type === 'tool_result')
+      if (block?.type === 'tool_result') {
+        expect(block.content).toContain('BODY0:')
+        expect(block.content).not.toContain(MICROCOMPACT_NOTE)
+      }
+    }
+  })
+
+  test('TRACE emits compact.micro when placeholders are applied', () => {
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    console.error = (...args: unknown[]) => {
+      lines.push(args.join(' '))
+    }
+
+    compactMessages(longHistory(), {
+      maxOutboundChars: 0,
+      microKeepRecent: 1,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 100,
+    })
+
+    const micro = lines.find(l => l.includes('compact.micro'))
+    expect(micro).toBeDefined()
+    expect(micro).toContain('replaced=')
+    const run = lines.find(l => l.includes('compact.run'))
+    expect(run).toBeDefined()
+    expect(run).toMatch(/strategy=.*micro/)
+  })
+
+  test('does not microcompact Echo tool results', () => {
+    const messages: Message[] = [
+      createUserMessage('q0'),
+      createAssistantMessage([
+        { type: 'tool_use', id: 'toolu_echo', name: 'Echo', input: {} },
+      ]),
+      createToolResultMessage('toolu_echo', 'E'.repeat(800)),
+      createUserMessage('q1'),
+      createAssistantMessage([
+        { type: 'tool_use', id: 'toolu_read', name: 'Read', input: { file_path: 'a.txt' } },
+      ]),
+      createToolResultMessage('toolu_read', 'R'.repeat(800)),
+    ]
+
+    const out = compactMessages(messages, {
+      maxOutboundChars: 0,
+      microKeepRecent: 0,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 100,
+    })
+
+    const echoResult = out
+      .flatMap(m => (m.type === 'user' ? m.content : []))
+      .find(b => b.type === 'tool_result' && b.tool_use_id === 'toolu_echo')
+    if (echoResult?.type !== 'tool_result') throw new Error('missing echo result')
+    expect(echoResult.content).toContain('EEEE')
+    expect(echoResult.content).not.toContain(MICROCOMPACT_NOTE)
+  })
+
+  test('after microcompact drops under threshold, retainTail is skipped', () => {
+    // 6 段长结果：超阈值会 micro；占位后总字符回落，保尾不应再丢轮
+    const messages = longHistory()
+    const beforeLen = messages.length
+    const out = compactMessages(messages, {
+      maxOutboundChars: 2000,
+      microKeepRecent: 1,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 8,
+    })
+
+    expect(out.length).toBe(beforeLen)
+    const results = out.flatMap(m =>
+      m.type === 'user'
+        ? m.content.filter(b => b.type === 'tool_result')
+        : [],
+    )
+    const early = results[0]
+    if (early.type !== 'tool_result') throw new Error('expected tool_result')
+    expect(early.content).toContain(MICROCOMPACT_NOTE)
   })
 })

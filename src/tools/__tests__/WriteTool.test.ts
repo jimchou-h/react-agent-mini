@@ -25,9 +25,19 @@ describe('WriteTool', () => {
     await rm(testDir, { recursive: true, force: true })
   })
 
+  test('creates parent directories when missing', async () => {
+    const result = await WriteTool.call(
+      { file_path: 'nested/dir/out.txt', content: 'nested write' },
+      createMinimalToolContext([WriteTool]),
+    )
+
+    expect(result.data).toContain('nested/dir/out.txt')
+    expect(await readFile('nested/dir/out.txt', 'utf-8')).toBe('nested write')
+  })
+
   test('writes UTF-8 content when path is under cwd and parent exists', async () => {
     const result = await WriteTool.call(
-      { path: 'out.txt', content: 'hello write' },
+      { file_path: 'out.txt', content: 'hello write' },
       createMinimalToolContext([WriteTool]),
     )
 
@@ -39,7 +49,7 @@ describe('WriteTool', () => {
     await writeFile('out.txt', 'old', 'utf-8')
 
     await WriteTool.call(
-      { path: 'out.txt', content: 'new' },
+      { file_path: 'out.txt', content: 'new' },
       createMinimalToolContext([WriteTool]),
     )
 
@@ -49,7 +59,7 @@ describe('WriteTool', () => {
   test('rejects path outside cwd', async () => {
     await expect(
       WriteTool.call(
-        { path: '../../outside.txt', content: 'x' },
+        { file_path: '../../outside.txt', content: 'x' },
         createMinimalToolContext([WriteTool]),
       ),
     ).rejects.toThrow('拒绝访问')
@@ -60,14 +70,14 @@ describe('WriteTool', () => {
 
     await expect(
       WriteTool.call(
-        { path: 'big.txt', content: big },
+        { file_path: 'big.txt', content: big },
         createMinimalToolContext([WriteTool]),
       ),
     ).rejects.toThrow('内容过大')
   })
 
   test('is not read-only', () => {
-    expect(WriteTool.isReadOnly({ path: 'a.txt', content: 'x' })).toBe(false)
+    expect(WriteTool.isReadOnly({ file_path: 'a.txt', content: 'x' })).toBe(false)
   })
 
   test('is registered in getTools and formats CLI status', () => {
@@ -77,7 +87,7 @@ describe('WriteTool', () => {
         type: 'tool_use',
         id: 'toolu_w',
         name: 'Write',
-        input: { path: 'a.txt', content: 'x' },
+        input: { file_path: 'a.txt', content: 'x' },
       }),
     ).toBe('[工具] Write: a.txt')
   })
@@ -87,7 +97,7 @@ describe('WriteTool', () => {
       type: 'tool_use',
       id: 'toolu_write_1',
       name: 'Write',
-      input: { path: 'via-exec.txt', content: 'via runToolUse' },
+      input: { file_path: 'via-exec.txt', content: 'via runToolUse' },
     }
     const parent = createAssistantMessage([block])
 

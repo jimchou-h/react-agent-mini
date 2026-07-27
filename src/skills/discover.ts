@@ -2,7 +2,10 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export type DiscoveredSkill = {
+  /** 调用 ID（目录名） */
   name: string
+  /** frontmatter name，仅用于展示 */
+  displayName?: string
   description?: string
   body: string
   path: string
@@ -50,8 +53,10 @@ function parseSkill(
   }
 
   const description = metadata.get('description')
+  const displayName = metadata.get('name')
   return {
-    name: metadata.get('name') || fallbackName,
+    name: fallbackName,
+    ...(displayName ? { displayName } : {}),
     ...(description ? { description } : {}),
     body: truncateBody(match[2]!),
     path,
