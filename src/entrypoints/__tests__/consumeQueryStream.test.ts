@@ -16,7 +16,7 @@ describe('consumeQueryStream', () => {
           type: 'tool_use',
           id: 'toolu_1',
           name: 'Read',
-          input: { path: 'a.ts' },
+          input: { file_path: 'a.ts' },
         },
       ])
       yield createToolResultMessage('toolu_1', 'ok')

@@ -49,7 +49,7 @@ describe('formatToolStartStatus', () => {
         type: 'tool_use',
         id: 'toolu_1',
         name: 'Read',
-        input: { path: 'README.md' },
+        input: { file_path: 'README.md' },
       }),
     ).toBe('[工具] Read: README.md')
   })
@@ -85,6 +85,17 @@ describe('formatToolStartStatus', () => {
         input: { pattern: '**/*.ts' },
       }),
     ).toBe('[工具] Glob: **/*.ts')
+  })
+
+  test('formats Bash tool status with command', () => {
+    expect(
+      formatToolStartStatus({
+        type: 'tool_use',
+        id: 'toolu_5',
+        name: 'Bash',
+        input: { command: 'echo hi' },
+      }),
+    ).toBe('[工具] Bash: echo hi')
   })
 })
 describe('formatToolResultStatus', () => {
