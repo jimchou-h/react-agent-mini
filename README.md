@@ -99,7 +99,7 @@ Skill({ "skill": "echo-demo" })
 
 ### MCP（stdio 外部工具）
 
-项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径，支持逗号分隔多文件合并）即可在启动时连接 stdio MCP server，工具以 `mcp__<server>__<tool>` 名称合并进会话。
+项目根放置 `.mcp.json`（可用 `MCP_CONFIG` 覆盖路径，支持逗号分隔多文件合并）即可在启动时连接 stdio MCP server，工具以 `mcp__<server>__<tool>` 名称合并进会话。若 `server` 或 `tool` 名中包含 `.` 或空格，公开工具名会先规范化为 `_`（例如 `my.server` → `my_server`）。
 
 博客分两篇：
 

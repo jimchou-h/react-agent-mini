@@ -27,6 +27,6 @@
 
 ## 5. 文档与验收
 
-- [ ] 5.1 更新 README / architecture / 相关 CONTEXT（schema 示例）
-- [ ] 5.2 标注 `v4-edit-polish` 已由本 change 吸收
+- [x] 5.1 更新 README / architecture / 相关 CONTEXT（schema 示例）
+- [x] 5.2 标注 `v4-edit-polish` 已由本 change 吸收
 - [x] 5.3 `bun test` + `bun run typecheck` 通过
