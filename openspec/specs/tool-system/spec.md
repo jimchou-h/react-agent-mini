@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Skill / Write / Edit 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
+定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Bash / Skill / Write / Edit 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
 
 ## Requirements
 
@@ -50,16 +50,16 @@
 
 ### Requirement: Read 工具
 
-系统 SHALL 提供 `Read` 工具，读取本地文件文本内容并返回。
+系统 SHALL 提供 `Read` 工具，读取本地文件文本内容并返回。入参路径字段 SHALL 为 `file_path`。文本结果 SHALL 带行号前缀（`行号\t内容`）；整文件与分段读取均适用。
 
 #### Scenario: 读取存在的文件
 
-- **WHEN** 模型调用 `Read` 且 `path` 指向 `cwd` 下存在的普通文件
-- **THEN** `tool_result` 包含该文件的 UTF-8 文本内容
+- **WHEN** 模型调用 `Read` 且 `file_path` 指向 `cwd` 下存在的普通文件
+- **THEN** `tool_result` 包含带行号前缀的 UTF-8 文本内容
 
 #### Scenario: 分段读取
 
-- **WHEN** 模型调用 `Read` 且提供 `offset`（起始行，1-based）与 `limit`（行数）
+- **WHEN** 模型调用 `Read` 且提供 `offset`（起始行，0 视为 1）与 `limit`（行数）
 - **THEN** `tool_result` 仅包含指定行范围，每行带行号前缀
 
 #### Scenario: 文件不存在

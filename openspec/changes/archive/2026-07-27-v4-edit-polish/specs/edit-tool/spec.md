@@ -2,7 +2,7 @@
 
 ### Requirement: Edit 工具
 
-系统 SHALL 提供 `Edit` 工具，在 `cwd` 内已存在文件中把 `old_string` 替换为 `new_string`。匹配前 SHALL 将文件内容中的 CRLF 规范为 LF 视图；精确匹配失败时，SHALL 尝试在去除行尾空白后的视图上查找唯一匹配（命中则按实际原文切片替换）。
+系统 SHALL 提供 `Edit` 工具，在 `cwd` 内已存在文件中把 `old_string` 替换为 `new_string`。匹配前 SHALL 将文件内容中的 CRLF 规范为 LF 视图；写回时 SHALL 恢复原文件检测到的换行风格。
 
 #### Scenario: 唯一匹配替换成功
 
@@ -26,8 +26,8 @@
 
 #### Scenario: 未找到 old_string
 
-- **WHEN** 规范化与去行尾空白尝试后仍不存在唯一可替换目标
-- **THEN** `tool_result` 标记为错误，文件不变更，错误信息可提示检查换行/空白
+- **WHEN** 规范化视图中仍不存在可替换目标
+- **THEN** `tool_result` 标记为错误，文件不变更，错误信息可提示检查换行风格
 
 #### Scenario: 路径越界
 

@@ -1,14 +1,14 @@
 ## Context
 
-Edit 字面 `indexOf` 在 CRLF 仓库上易失败。claude-code 用 `findActualString`；mini 做可测子集。
+Edit 字面 `indexOf` 在 CRLF 仓库上易失败。claude-code 当前读文件时统一 LF 视图并恢复原换行风格；mini 对齐这部分现状，不额外引入尾随空白回退。
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- 读入后统一 `\r\n` → `\n` 再匹配与写回策略明确（写回 LF，或写回时恢复原换行——选一种并测）
-- `findActualString` 精简：精确命中优先；否则尝试去行尾空白后再唯一匹配
-- 错误信息提示换行/空白
+- 读入后统一 `\r\n` → `\n` 再匹配，并写回恢复原换行风格
+- 继续保持精确匹配语义，不额外引入尾随空白回退
+- 错误信息提示换行风格
 
 **Non-Goals:**
 
@@ -21,9 +21,9 @@ Edit 字面 `indexOf` 在 CRLF 仓库上易失败。claude-code 用 `findActualS
 
 **选择**：匹配用 LF 视图；写回时若原文件含 CRLF 则写回 CRLF，否则 LF（检测原文件）。
 
-### 2. 空白
+### 2. 匹配语义
 
-**选择**：仅当精确匹配失败且去行尾空白后恰好一处命中时采用；多处仍报错。
+**选择**：保持当前精确匹配语义；本 change 只解决 CRLF/LF 视图差异，不做尾随空白容错。
 
 ## Risks / Trade-offs
 

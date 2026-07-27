@@ -2,18 +2,18 @@
 
 ## Purpose
 
-工作区 Skill 发现、解析与按需加载：扫描 `SKILL.md`、在 system prompt 中提供可用技能摘要，并通过只读 `Skill` 工具返回正文。
+工作区 Skill 发现、解析与按需加载：扫描 `SKILL.md`、在 system prompt 中提供可用技能摘要，并通过只读 `Skill` 工具注入正文。
 
 ## Requirements
 
 ### Requirement: 技能发现
 
-系统 SHALL 扫描工作区下 `.agents/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`，解析为可调用技能列表。
+系统 SHALL 扫描工作区下 `.agents/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`，解析为可调用技能列表。技能的**调用 ID** SHALL 为包含 `SKILL.md` 的目录名；frontmatter 中的 `name` 仅作展示名（displayName），不作为 `Skill` 工具入参。
 
 #### Scenario: 发现本地 skill
 
-- **WHEN** 存在 `.agents/skills/foo/SKILL.md` 且 frontmatter 含 `name: foo`
-- **THEN** 技能列表包含名为 `foo` 的条目
+- **WHEN** 存在 `.agents/skills/foo/SKILL.md` 且 frontmatter 含 `name: display-foo`
+- **THEN** 技能列表包含调用 ID `foo`；system 摘要可展示 `display-foo`
 
 #### Scenario: 无 skills 目录
 
@@ -22,12 +22,12 @@
 
 ### Requirement: Skill 工具
 
-系统 SHALL 提供 `Skill` 工具，接受技能名称参数，返回该技能的 Markdown 正文。
+系统 SHALL 提供 `Skill` 工具，接受技能名称（目录名）与可选 `args`，加载技能正文。技能正文 SHALL 通过会话消息注入通道提供给模型；`tool_result` SHALL 为短确认文案（非全文正文）。
 
 #### Scenario: 加载已知技能
 
-- **WHEN** 模型调用 `Skill` 且 `skill` 为已发现名称
-- **THEN** `tool_result` 包含对应 `SKILL.md` 正文（非错误）
+- **WHEN** 模型调用 `Skill` 且 `skill` 为已发现目录名
+- **THEN** 技能正文进入注入通道，且 `tool_result` 为短确认文案（非错误）
 
 #### Scenario: 未知技能
 
@@ -41,4 +41,4 @@
 #### Scenario: 列表出现在 system 中
 
 - **WHEN** 至少发现一个 skill 且已启用 project system prompt
-- **THEN** system 内容包含该技能名称（及可选简短描述）
+- **THEN** system 内容包含该技能的调用 ID（及可选 displayName / 描述）
