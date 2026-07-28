@@ -103,7 +103,7 @@ Skill({ "skill": "echo-demo" })
 
 - **Tools**：以 `mcp__<server>__<tool>` 合并进会话（`.` / 空格 → `_`）
 - **Resources**：server 声明 `resources` 时，追加 `ListMcpResourcesTool` / `ReadMcpResourceTool` 供模型 list/read
-- **Prompts**：server 声明 `prompts` 时，REPL 可用 `/server:prompt args`（或 `/server:prompt (MCP) args`）拉取模板并注入当前 turn。Host 仅按模板中的 `@server:uri` 挂载 Resource；无引用不自动挂载（headless 不自动执行 slash）
+- **Prompts**：server 声明 `prompts` 时，REPL 可用 `/server:prompt args`。Host 对 slash 返回文本与**普通/headless 用户消息**中的 `@server:uri` 按需挂载 Resource；无引用不自动挂载
 
 博客分两篇：
 
@@ -149,7 +149,7 @@ bun run dev   # 问：用计算器算 17+25
 | 某 server 连接失败 | stderr 警告并跳过该 server |
 | 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL y/n；headless 需 `ALLOW_WRITE=1`） |
 | Resources | 只读工具；read 失败返回错误 tool_result |
-| Prompts | 仅 REPL slash；仅 `@server:uri` 按需挂载；不经 Skill 工具 |
+| Prompts | 仅 REPL slash 执行模板；`@server:uri` 在 slash/普通消息/headless 均可按需挂载；不经 Skill 工具 |
 | 限制 | 仅 stdio；无 SSE/OAuth/Sampling/`resources/subscribe` |
 
 ### Mock 单次问答（无需 API Key）

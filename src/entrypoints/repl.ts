@@ -1,17 +1,16 @@
 /**
  * REPL：读用户输入 → 本地 slash / MCP slash / 普通对话
  *
- * MCP 相关路径（用户敲 `/tour:plan_trip 石家庄 2`）：
- * 1. 解析成已注册的 prompt 命令
- * 2. `prompts/get` 拿到开场模板
- * 3. 仅按模板中的 `@server:uri` 按需挂 Resource（无引用则不自动挂载）
- * 4. 用空 userText + injectBefore 开一轮，避免把 `/tour:...` 原文送给模型
+ * MCP 相关路径：
+ * - `/tour:plan_trip …`：prompts/get → 按返回文本中 `@server:uri` 挂 Resource → 注入开场
+ * - 普通消息含 `@server:uri`：按需挂 Resource，再发送用户原文（对齐 CC）
  */
 
 import type { QueryEngine } from '../QueryEngine.js'
 import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
 import { formatMcpHelpLines, parseMcpSlashCommand } from '../services/mcp/promptSlash.js'
+import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 
 /** 空行（仅空白）不发起 query */
@@ -156,7 +155,20 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
     }
 
     try {
-      await consume(deps.engine.runTurn(trimmed))
+      // 普通消息：与 CC 一样解析用户原文里的 @server:uri，材料在前、原文在后
+      const resources = await resolvePromptResourceMessages(
+        mcpClients,
+        [createUserMessage(trimmed)],
+        { warn: msg => print(msg) },
+      )
+      if (resources.length > 0) {
+        print(`已挂载 MCP Resource ×${resources.length}`)
+      }
+      await consume(
+        deps.engine.runTurn(trimmed, {
+          injectBefore: resources.length > 0 ? resources : undefined,
+        }),
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`错误: ${msg}`)

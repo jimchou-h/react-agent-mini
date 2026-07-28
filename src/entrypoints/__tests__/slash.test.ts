@@ -246,6 +246,77 @@ describe('runReplSession slash handling', () => {
     expect(texts.some(t => t.includes('other-body'))).toBe(false)
     expect(texts.some(t => t.includes('@tour:docs://handbook'))).toBe(true)
   })
+
+  test('ordinary message with @server:uri mounts resource before user text', async () => {
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: async function* mock() {
+          yield createAssistantMessage([{ type: 'text', text: 'done' }])
+        },
+        uuid: () => 'ordinary-mention-uuid',
+      },
+    })
+
+    const reads: string[] = []
+    const mcpClients = [
+      {
+        serverId: 'tour',
+        capabilities: { resources: {} },
+        client: {
+          listResources: async () => ({
+            resources: [{ uri: 'docs://handbook', name: '差旅手册' }],
+          }),
+          readResource: async (params: { uri: string }) => {
+            reads.push(params.uri)
+            return {
+              contents: [
+                {
+                  uri: params.uri,
+                  text: '# 差旅手册\n经济舱优先',
+                },
+              ],
+            }
+          },
+        },
+        close: async () => {},
+      },
+    ] as unknown as import('../../services/mcp/types.js').McpConnectedClient[]
+
+    const printed: string[] = []
+
+    async function* lines() {
+      yield '请根据 @tour:docs://handbook 安排行程'
+      yield '/exit'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      mcpClients,
+      print: t => printed.push(t),
+      consume: async gen => {
+        while (true) {
+          const result = await gen.next()
+          if (result.done) return result.value
+        }
+      },
+    })
+
+    expect(reads).toEqual(['docs://handbook'])
+    expect(printed.some(p => p.includes('已挂载 MCP Resource ×1'))).toBe(true)
+    const userTexts = engine.messages
+      .filter(m => m.type === 'user')
+      .flatMap(m => m.content)
+      .filter(b => b.type === 'text')
+      .map(b => (b.type === 'text' ? b.text : ''))
+    expect(userTexts[0]).toContain('经济舱优先')
+    expect(userTexts.some(t => t.includes('请根据 @tour:docs://handbook 安排行程'))).toBe(
+      true,
+    )
+  })
 })
 
 describe('buildHelpText', () => {

@@ -9,10 +9,12 @@ import { query } from '../query.js'
 import { QueryEngine } from '../QueryEngine.js'
 import type { DiscoveredSkill } from '../skills/discover.js'
 import { loadSessionContext } from '../skills/systemPrompt.js'
-import type { Tools, ToolUseContext } from '../Tool.js'
+import type { Tools } from '../Tool.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
 import { createHeadlessCanUseTool, createReplCanUseTool } from '../permissions/canUseTool.js'
 import { loadMcpTools, sessionTools } from '../services/mcp/load.js'
+import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
+import type { McpConnectedClient } from '../services/mcp/types.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 import { runRepl } from './repl.js'
@@ -53,20 +55,26 @@ function ensureAuth(argv: string[]): void {
   }
 }
 
-/** headless / pipe 共用：单次 query，写权限走 createHeadlessCanUseTool */
+/** headless / pipe 共用：单次 query；写权限走 createHeadlessCanUseTool；解析 @server:uri */
 async function runHeadless(
   prompt: string,
   tools: Tools,
   systemPrompt?: string,
   skills?: readonly DiscoveredSkill[],
-  mcpClients?: ToolUseContext['mcpClients'],
+  mcpClients?: readonly McpConnectedClient[],
 ): Promise<void> {
   const context = {
     ...createMinimalToolContext(tools, skills),
     mcpClients,
     canUseTool: createHeadlessCanUseTool(),
   }
-  const messages = [createUserMessage(prompt)]
+  const userMessage = createUserMessage(prompt)
+  const resources = await resolvePromptResourceMessages(
+    mcpClients ?? [],
+    [userMessage],
+    { warn: msg => console.error(msg) },
+  )
+  const messages = [...resources, userMessage]
   await consumeQueryStream(
     query({ messages, tools, toolUseContext: context, systemPrompt }),
   )

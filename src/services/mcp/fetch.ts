@@ -219,7 +219,8 @@ export async function loadReferencedResourcesAsMetaMessages(
 }
 
 /**
- * 从 prompt meta 消息解析 `@server:uri` 并按需挂载。
+ * 从 user/prompt 消息文本解析 `@server:uri` 并按需挂载。
+ * 用于 MCP slash 的 get 结果，也用于普通 REPL / headless 用户原文。
  * 无任何引用 → `[]`（不对齐「全量挂载」；与 claude-code 一致）。
  */
 export async function resolvePromptResourceMessages(

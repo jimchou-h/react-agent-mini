@@ -1,62 +1,62 @@
 ## Context
 
-v4-mcp-capabilities 曾在 slash 前全量 `resources/read`。claude-code 不会这样做。本 change 收敛为「显式 `@server:uri` → 精确 read」，且**不加** CC 没有的全量 fallback。
+v4-mcp-capabilities 曾在 slash 前全量 `resources/read`。claude-code 不会这样做。本 change 收敛为「显式 `@server:uri` → 精确 read」，且**不加** CC 没有的全量 fallback。另：CC 在**普通用户输入**也会解析 `@server:uri`（`getAttachmentMessages`）；mini 曾只在 MCP slash 路径处理，本 change 一并补齐。
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- 解析 prompt 文本中的 `@server:uri`
-- 仅对这些引用 `resources/read` 并 meta 注入（先于 prompt）
+- 解析文本中的 `@server:uri`（slash prompt 结果 + 普通用户消息 + headless prompt）
+- 仅对这些引用 `resources/read` 并 meta 注入（先于用户/prompt 正文）
 - 无 mention → 不自动挂 Resource
 - tour `plan_trip` 使用 `@tour:docs://handbook`
-- 单测：有引用只读命中；无引用返回空资源列表
+- 单测覆盖 slash / 普通 REPL 两条路径
 
 **Non-Goals:**
 
-- 无 mention 时全量挂载（CC 无；本仓库不对齐此项）
+- 无 mention 时全量挂载
 - 中文名模糊匹配、`@` 补全 UI、subscribe
 - 改变 List/Read 两工具行为
 
 ## Decisions
 
-### 1. 注入流水线
+### 1. Slash 注入流水线
 
 1. `prompts/get` → `promptMessages`
-2. 提取 `@server:uri`
-3. 有引用 → `loadReferencedResourcesAsMetaMessages`
-4. 无引用 → `[]`（不全量挂载）
-5. `injectBefore: [...resources, ...promptMessages]`
+2. 从文本提取 `@server:uri` → 按需 read
+3. `injectBefore: [...resources, ...promptMessages]`（无 userText）
 
-### 2. Mention 语法
+### 2. 普通消息 / headless
 
-`(^|\s)@([^\s]+:[^\s]+)`，首个 `:` 拆 `server` / `uri`。例：`@tour:docs://handbook`。
+1. 从用户原文提取 `@server:uri` → 按需 read
+2. 资源 meta 在前，用户原文仍作为本轮 user（`runTurn(text, { injectBefore: resources })` 或 headless 拼 messages）
+3. 对齐 CC：mention 附件 + 用户原文并存
 
-### 3. 错误
+### 3. Mention 语法
 
-去重；server 缺失 / read 失败 → warn 跳过；不中断 slash；不因失败而改走全量挂载。
+`(^|\s)@([^\s]+:[^\s]+)`，首个 `:` 拆 `server` / `uri`。
 
-### 4. Demo
+### 4. 错误
 
-prompt 写死 `@tour:docs://handbook`；`.mcp.json` key 为 `tour`。
+去重；失败 warn 跳过；不中断回合；不因失败改走全量挂载。
 
 ### 5. 落位
 
-解析与按需 read 在 `services/mcp/fetch.ts`；`repl.ts` 只编排。
+`resolvePromptResourceMessages`（对任意含文本的 user 消息列表）在 `services/mcp/fetch.ts`；`repl.ts` / `cli.ts` 编排。
 
 ## Risks / Trade-offs
 
 | 风险 | 缓解 |
 |------|------|
-| 旧 prompt 无 `@` 则材料不自动进上下文 | 要求 prompt 写明 `@server:uri`；模型仍可 List/Read |
-| 写错 `@server` | warn；List/Read 可补救 |
-| demo key 不是 `tour` | README / example 对齐 |
+| 用户消息无 `@` 则不自动挂材料 | 与 CC 一致；可用 List/Read |
+| 写错 `@server` | warn |
 
 ## Migration Plan
 
-- **BREAKING（相对 v4-mcp-capabilities 全量挂载）**：无 `@server:uri` 的 MCP prompt 不再自动挂 Resources
-- tour demo 已改文案；第三方 prompt 需自行加 mention 或依赖模型工具
+- 相对「仅 slash 全量挂载」：**BREAKING** 为无 mention 不再全量挂
+- 新增普通消息 mention → 行为更接近 CC（additive）
 
 ## Open Questions
 
-- （已决）不加全量 fallback，严格对齐 CC 按需路径
+- （已决）普通消息也解析 `@server:uri`
+- （已决）不加全量 fallback

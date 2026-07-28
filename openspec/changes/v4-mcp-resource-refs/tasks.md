@@ -32,3 +32,9 @@
 
 - [x] 5.1 删除无 mention 全量 fallback（claude-code 无此行为）
 - [x] 5.2 对齐纪律写入 `docs/architecture-alignment.md`：CC 没有的默认不加，加则先告知用户
+
+## 6. 普通消息 @server:uri（同 change，对齐 CC）
+
+- [x] 6.1 REPL 普通输入解析 `@server:uri` 并 `injectBefore` + 单测
+- [x] 6.2 headless/pipe 同样解析用户 prompt 中的 `@server:uri`
+- [x] 6.3 更新 specs / CONTEXT / README
