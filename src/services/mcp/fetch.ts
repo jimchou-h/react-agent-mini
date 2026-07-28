@@ -4,10 +4,11 @@
  * 职责一句话：
  * - Resources：问 server「有哪些材料」「读某一份材料」
  * - Prompts：问 server「有哪些开场模板」，并变成 REPL slash 能跑的命令
- * - slash 执行前：把该 server 的 Resources 先塞进本轮上下文（meta 消息）
+ * - slash：先 `prompts/get`，再按 `@server:uri` 按需挂 Resource；无引用时 fallback 全量挂载
  *
  * 约定：list 失败或没能力 → 返回空数组（不拖垮会话）；
- *       read 失败或没能力 → 抛错（调用方做成 tool_result 错误）。
+ *       read 失败或没能力 → 抛错（调用方做成 tool_result 错误）；
+ *       mention read 失败 → warn 跳过，不中断 slash。
  */
 
 import type { PromptMessage } from '@modelcontextprotocol/sdk/types.js'
@@ -22,6 +23,37 @@ import type {
 
 /** 挂进模型上下文的单份 Resource 正文上限，避免撑爆上下文 */
 export const MCP_RESOURCE_INJECT_MAX_CHARS = 100_000
+
+/** 文本中的 MCP 资源引用：`@server:uri` */
+export type McpResourceMention = {
+  server: string
+  uri: string
+}
+
+/**
+ * 从文本解析 `@server:uri`（对齐 claude-code mention）。
+ * `server` 与 `uri` 以第一个 `:` 分隔，故 uri 可含 `://`。
+ */
+export function extractMcpResourceMentions(
+  content: string,
+): McpResourceMention[] {
+  const atMentionRegex = /(^|\s)@([^\s]+:[^\s]+)\b/g
+  const seen = new Set<string>()
+  const out: McpResourceMention[] = []
+  let match: RegExpExecArray | null
+  while ((match = atMentionRegex.exec(content)) !== null) {
+    const raw = match[2]!
+    const colon = raw.indexOf(':')
+    if (colon <= 0 || colon >= raw.length - 1) continue
+    const server = raw.slice(0, colon)
+    const uri = raw.slice(colon + 1)
+    const key = `${server}\0${uri}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ server, uri })
+  }
+  return out
+}
 
 /**
  * 向某个 server 要 Resource 列表。
@@ -149,11 +181,8 @@ export async function readMcpResource(
 }
 
 /**
- * Host 在跑 MCP slash 之前调用：把该 server 上所有 Resource 读出来，
- * 变成带 `meta: true` 的 user 消息，先挂进本轮（再挂 Prompt）。
- *
- * 这样模型才能看到「差旅手册」等材料，而不是只看到「请先阅读手册」。
- * 对齐 `examples/mcp-tour-server/how-to-host.mjs` 的「先材料、后开场」顺序。
+ * Host 在跑 MCP slash 时调用：把该 server 上所有 Resource 读出来（fallback）。
+ * 当 prompt 文本不含 `@server:uri` 时使用。
  */
 export async function loadServerResourcesAsMetaMessages(
   clients: readonly McpConnectedClient[],
@@ -165,45 +194,126 @@ export async function loadServerResourcesAsMetaMessages(
     return []
   }
 
-  const maxChars = options?.maxChars ?? MCP_RESOURCE_INJECT_MAX_CHARS
   const listed = await fetchResourcesForClient(client, options)
   const messages: UserMessage[] = []
 
   for (const resource of listed) {
-    try {
-      const contents = await readMcpResource(client, resource.uri)
-      const body = contents
-        .map(item => {
-          if (item.text) {
-            return item.text.length > maxChars
-              ? `${item.text.slice(0, maxChars)}\n\n[truncated]`
-              : item.text
-          }
-          return item.blobSavedTo ?? ''
-        })
-        .filter(Boolean)
-        .join('\n\n')
-
-      if (!body) continue
-
-      const text = [
-        '以下材料来自 MCP Resource，请严格遵守：',
-        `server=${serverId} uri=${resource.uri} name=${resource.name}`,
-        '',
-        body,
-      ].join('\n')
-      const msg = createUserMessage(text)
-      msg.meta = true
-      messages.push(msg)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      options?.warn?.(
-        `警告: 读取 MCP resource ${serverId}:${resource.uri} 失败 — ${msg}`,
-      )
-    }
+    const msg = await readResourceAsMetaMessage(
+      client,
+      resource.uri,
+      resource.name,
+      options,
+    )
+    if (msg) messages.push(msg)
   }
 
   return messages
+}
+
+/**
+ * 按 `@server:uri` 引用精确读取 Resource，转为 meta 消息。
+ * server 缺失 / 无能力 / read 失败 → warn 跳过，不中断其它引用。
+ */
+export async function loadReferencedResourcesAsMetaMessages(
+  clients: readonly McpConnectedClient[],
+  refs: readonly McpResourceMention[],
+  options?: { warn?: (msg: string) => void; maxChars?: number },
+): Promise<UserMessage[]> {
+  const messages: UserMessage[] = []
+  const seen = new Set<string>()
+
+  for (const ref of refs) {
+    const key = `${ref.server}\0${ref.uri}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const client = clients.find(item => item.serverId === ref.server)
+    if (!client?.capabilities?.resources) {
+      options?.warn?.(
+        `警告: MCP resource 引用 @${ref.server}:${ref.uri} 无法读取 — server 未连接或不支持 resources`,
+      )
+      continue
+    }
+
+    const msg = await readResourceAsMetaMessage(
+      client,
+      ref.uri,
+      undefined,
+      options,
+    )
+    if (msg) messages.push(msg)
+  }
+
+  return messages
+}
+
+/**
+ * 根据 prompt meta 消息决定挂载策略：
+ * - 有 `@server:uri` → 只读引用（不做同 server 全量补齐）
+ * - 无引用 → fallback 全量挂载 prompt 所属 server
+ */
+export async function resolvePromptResourceMessages(
+  clients: readonly McpConnectedClient[],
+  promptServerId: string,
+  promptMessages: readonly UserMessage[],
+  options?: { warn?: (msg: string) => void; maxChars?: number },
+): Promise<UserMessage[]> {
+  const text = promptMessages
+    .flatMap(message => message.content)
+    .filter(
+      (block): block is Extract<(typeof promptMessages)[number]['content'][number], { type: 'text' }> =>
+        block.type === 'text',
+    )
+    .map(block => block.text)
+    .join('\n')
+
+  const refs = extractMcpResourceMentions(text)
+  if (refs.length > 0) {
+    return loadReferencedResourcesAsMetaMessages(clients, refs, options)
+  }
+  return loadServerResourcesAsMetaMessages(clients, promptServerId, options)
+}
+
+async function readResourceAsMetaMessage(
+  client: McpConnectedClient,
+  uri: string,
+  name: string | undefined,
+  options?: { warn?: (msg: string) => void; maxChars?: number },
+): Promise<UserMessage | null> {
+  const maxChars = options?.maxChars ?? MCP_RESOURCE_INJECT_MAX_CHARS
+  try {
+    const contents = await readMcpResource(client, uri)
+    const body = contents
+      .map(item => {
+        if (item.text) {
+          return item.text.length > maxChars
+            ? `${item.text.slice(0, maxChars)}\n\n[truncated]`
+            : item.text
+        }
+        return item.blobSavedTo ?? ''
+      })
+      .filter(Boolean)
+      .join('\n\n')
+
+    if (!body) return null
+
+    const namePart = name ? ` name=${name}` : ''
+    const text = [
+      '以下材料来自 MCP Resource，请严格遵守：',
+      `server=${client.serverId} uri=${uri}${namePart}`,
+      '',
+      body,
+    ].join('\n')
+    const msg = createUserMessage(text)
+    msg.meta = true
+    return msg
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    options?.warn?.(
+      `警告: 读取 MCP resource ${client.serverId}:${uri} 失败 — ${msg}`,
+    )
+    return null
+  }
 }
 
 /**

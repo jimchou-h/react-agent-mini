@@ -1,12 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import {
+  extractMcpResourceMentions,
   fetchCommandsForClient,
   fetchResourcesForClient,
+  loadReferencedResourcesAsMetaMessages,
   loadServerResourcesAsMetaMessages,
   promptMessagesToUserMessages,
   readMcpResource,
+  resolvePromptResourceMessages,
 } from '../fetch.js'
+import { createUserMessage } from '../../../utils/messages.js'
 import type { McpConnectedClient } from '../types.js'
 
 function mockClient(partial: {
@@ -162,6 +166,154 @@ describe('loadServerResourcesAsMetaMessages', () => {
         : ''
     expect(text).toContain('policy body')
     expect(text).toContain('docs://handbook')
+  })
+})
+
+describe('extractMcpResourceMentions', () => {
+  test('parses @server:uri including :// in uri', () => {
+    expect(
+      extractMcpResourceMentions(
+        '先阅读 @tour:docs://handbook ，再给出日程草案。',
+      ),
+    ).toEqual([{ server: 'tour', uri: 'docs://handbook' }])
+  })
+
+  test('dedupes and ignores non-mention at-signs', () => {
+    expect(
+      extractMcpResourceMentions(
+        'email@x.com @tour:docs://a @tour:docs://a @other:res://b',
+      ),
+    ).toEqual([
+      { server: 'tour', uri: 'docs://a' },
+      { server: 'other', uri: 'res://b' },
+    ])
+  })
+})
+
+describe('loadReferencedResourcesAsMetaMessages', () => {
+  test('reads only referenced uris', async () => {
+    const reads: string[] = []
+    const client = mockClient({
+      capabilities: { resources: {} },
+      readResource: async () => {
+        reads.push('docs://handbook')
+        return {
+          contents: [{ uri: 'docs://handbook', text: 'handbook body' }],
+        }
+      },
+    })
+    // override serverId after mock (mockClient hardcodes demo)
+    const tourClient = { ...client, serverId: 'tour' }
+    tourClient.client = {
+      ...client.client,
+      readResource: async (params: { uri: string }) => {
+        reads.push(params.uri)
+        return {
+          contents: [{ uri: params.uri, text: `body:${params.uri}` }],
+        }
+      },
+    } as unknown as typeof client.client
+
+    const messages = await loadReferencedResourcesAsMetaMessages(
+      [tourClient],
+      [{ server: 'tour', uri: 'docs://handbook' }],
+    )
+    expect(reads).toEqual(['docs://handbook'])
+    expect(messages).toHaveLength(1)
+    const text =
+      messages[0]?.content[0]?.type === 'text'
+        ? messages[0].content[0].text
+        : ''
+    expect(text).toContain('body:docs://handbook')
+    expect(text).toContain('server=tour')
+  })
+
+  test('warns and skips missing server without aborting', async () => {
+    const warnings: string[] = []
+    const messages = await loadReferencedResourcesAsMetaMessages(
+      [],
+      [{ server: 'missing', uri: 'docs://x' }],
+      { warn: msg => warnings.push(msg) },
+    )
+    expect(messages).toEqual([])
+    expect(warnings.length).toBe(1)
+  })
+})
+
+describe('resolvePromptResourceMessages', () => {
+  test('by-ref when prompt text has @server:uri (no full mount)', async () => {
+    let listed = 0
+    const reads: string[] = []
+    const tourClient = {
+      serverId: 'tour',
+      capabilities: { resources: {} },
+      client: {
+        listResources: async () => {
+          listed++
+          return {
+            resources: [
+              { uri: 'docs://handbook', name: 'handbook' },
+              { uri: 'docs://other', name: 'other' },
+            ],
+          }
+        },
+        readResource: async (params: { uri: string }) => {
+          reads.push(params.uri)
+          return {
+            contents: [{ uri: params.uri, text: `body:${params.uri}` }],
+          }
+        },
+      },
+      close: async () => {},
+    } as unknown as import('../types.js').McpConnectedClient
+
+    const prompt = createUserMessage(
+      '要求：先阅读 @tour:docs://handbook ，再给出日程草案。',
+    )
+    prompt.meta = true
+
+    const messages = await resolvePromptResourceMessages(
+      [tourClient],
+      'tour',
+      [prompt],
+    )
+    expect(listed).toBe(0)
+    expect(reads).toEqual(['docs://handbook'])
+    expect(messages).toHaveLength(1)
+    expect(
+      messages[0]?.content[0]?.type === 'text'
+        ? messages[0].content[0].text
+        : '',
+    ).toContain('body:docs://handbook')
+  })
+
+  test('fallback full mount when prompt has no @server:uri', async () => {
+    const tourClient = {
+      serverId: 'tour',
+      capabilities: { resources: {} },
+      client: {
+        listResources: async () => ({
+          resources: [
+            { uri: 'docs://handbook', name: 'handbook' },
+            { uri: 'docs://other', name: 'other' },
+          ],
+        }),
+        readResource: async (params: { uri: string }) => ({
+          contents: [{ uri: params.uri, text: `body:${params.uri}` }],
+        }),
+      },
+      close: async () => {},
+    } as unknown as import('../types.js').McpConnectedClient
+
+    const prompt = createUserMessage('先阅读差旅手册（若已挂载）')
+    prompt.meta = true
+
+    const messages = await resolvePromptResourceMessages(
+      [tourClient],
+      'tour',
+      [prompt],
+    )
+    expect(messages).toHaveLength(2)
   })
 })
 

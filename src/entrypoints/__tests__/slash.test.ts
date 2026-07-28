@@ -70,7 +70,7 @@ describe('runReplSession slash handling', () => {
     expect(printed.some(p => p.includes('/help'))).toBe(true)
   })
 
-  test('MCP slash injects resources then prompt meta messages', async () => {
+  test('MCP slash without @ mention fallback full-mounts server resources', async () => {
     const tools = getTools()
     const engine = new QueryEngine({
       tools,
@@ -103,13 +103,19 @@ describe('runReplSession slash handling', () => {
         capabilities: { resources: {} },
         client: {
           listResources: async () => ({
-            resources: [{ uri: 'docs://handbook', name: '差旅手册' }],
+            resources: [
+              { uri: 'docs://handbook', name: '差旅手册' },
+              { uri: 'docs://other', name: 'other' },
+            ],
           }),
-          readResource: async () => ({
+          readResource: async (params: { uri: string }) => ({
             contents: [
               {
-                uri: 'docs://handbook',
-                text: '# 差旅手册\n经济舱优先',
+                uri: params.uri,
+                text:
+                  params.uri === 'docs://handbook'
+                    ? '# 差旅手册\n经济舱优先'
+                    : 'other-body',
               },
             ],
           }),
@@ -119,7 +125,6 @@ describe('runReplSession slash handling', () => {
     ] as unknown as import('../../services/mcp/types.js').McpConnectedClient[]
 
     const printed: string[] = []
-    let turnCount = 0
 
     async function* lines() {
       yield '/tour:plan_trip Tokyo'
@@ -133,7 +138,6 @@ describe('runReplSession slash handling', () => {
       mcpClients,
       print: t => printed.push(t),
       consume: async gen => {
-        turnCount++
         while (true) {
           const result = await gen.next()
           if (result.done) return result.value
@@ -141,17 +145,110 @@ describe('runReplSession slash handling', () => {
       },
     })
 
-    expect(turnCount).toBe(1)
-    expect(printed.some(p => p.includes('已挂载 MCP Resource'))).toBe(true)
+    expect(printed.some(p => p.includes('已挂载 MCP Resource ×2'))).toBe(true)
     const texts = engine.messages
       .filter(m => m.type === 'user')
       .flatMap(m => m.content)
       .filter(b => b.type === 'text')
       .map(b => (b.type === 'text' ? b.text : ''))
-    expect(texts.some(t => t.includes('差旅手册') && t.includes('经济舱优先'))).toBe(
-      true,
-    )
+    expect(texts.some(t => t.includes('经济舱优先'))).toBe(true)
+    expect(texts.some(t => t.includes('other-body'))).toBe(true)
     expect(texts.some(t => t.includes('injected:Tokyo'))).toBe(true)
+  })
+
+  test('MCP slash with @server:uri mounts only referenced resource', async () => {
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: async function* mock() {
+          yield createAssistantMessage([{ type: 'text', text: 'done' }])
+        },
+        uuid: () => 'mcp-slash-ref-uuid',
+      },
+    })
+
+    const mcpCommands: McpSlashCommand[] = [
+      {
+        serverId: 'tour',
+        promptName: 'plan_trip',
+        internalName: 'mcp__tour__plan_trip',
+        description: 'Plan trip',
+        argNames: ['city'],
+        slashLabel: 'tour:plan_trip (MCP)',
+        run: async argsLine => {
+          const msg = createUserMessage(
+            `injected:${argsLine}\n要求：先阅读 @tour:docs://handbook ，再给出日程草案。`,
+          )
+          msg.meta = true
+          return [msg]
+        },
+      },
+    ]
+
+    const reads: string[] = []
+    const mcpClients = [
+      {
+        serverId: 'tour',
+        capabilities: { resources: {} },
+        client: {
+          listResources: async () => ({
+            resources: [
+              { uri: 'docs://handbook', name: '差旅手册' },
+              { uri: 'docs://other', name: 'other' },
+            ],
+          }),
+          readResource: async (params: { uri: string }) => {
+            reads.push(params.uri)
+            return {
+              contents: [
+                {
+                  uri: params.uri,
+                  text:
+                    params.uri === 'docs://handbook'
+                      ? '# 差旅手册\n经济舱优先'
+                      : 'other-body',
+                },
+              ],
+            }
+          },
+        },
+        close: async () => {},
+      },
+    ] as unknown as import('../../services/mcp/types.js').McpConnectedClient[]
+
+    const printed: string[] = []
+
+    async function* lines() {
+      yield '/tour:plan_trip Tokyo'
+      yield '/exit'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      mcpCommands,
+      mcpClients,
+      print: t => printed.push(t),
+      consume: async gen => {
+        while (true) {
+          const result = await gen.next()
+          if (result.done) return result.value
+        }
+      },
+    })
+
+    expect(reads).toEqual(['docs://handbook'])
+    expect(printed.some(p => p.includes('已挂载 MCP Resource ×1'))).toBe(true)
+    const texts = engine.messages
+      .filter(m => m.type === 'user')
+      .flatMap(m => m.content)
+      .filter(b => b.type === 'text')
+      .map(b => (b.type === 'text' ? b.text : ''))
+    expect(texts.some(t => t.includes('经济舱优先'))).toBe(true)
+    expect(texts.some(t => t.includes('other-body'))).toBe(false)
+    expect(texts.some(t => t.includes('@tour:docs://handbook'))).toBe(true)
   })
 })
 

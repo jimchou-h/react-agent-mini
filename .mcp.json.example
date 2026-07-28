@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "tour": {
+      "command": "node",
+      "args": ["examples/mcp-tour-server/server.js"]
+    },
     "calc": {
       "command": "node",
       "args": ["examples/mcp-calc-server/server.js"]

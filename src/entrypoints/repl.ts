@@ -1,15 +1,15 @@
 /**
  * REPL：读用户输入 → 本地 slash / MCP slash / 普通对话
  *
- * MCP 相关路径（用户敲 `/calc:plan_trip 石家庄 2`）：
+ * MCP 相关路径（用户敲 `/tour:plan_trip 石家庄 2`）：
  * 1. 解析成已注册的 prompt 命令
- * 2. 先把该 server 的 Resources（如差旅手册）挂进本轮
- * 3. 再 `prompts/get` 注入开场白
- * 4. 用空 userText + injectBefore 开一轮，避免把 `/calc:...` 原文送给模型
+ * 2. `prompts/get` 拿到开场模板
+ * 3. 按模板中的 `@server:uri` 按需挂 Resource；无引用则 fallback 全量挂载该 server
+ * 4. 用空 userText + injectBefore 开一轮，避免把 `/tour:...` 原文送给模型
  */
 
 import type { QueryEngine } from '../QueryEngine.js'
-import { loadServerResourcesAsMetaMessages } from '../services/mcp/fetch.js'
+import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
 import { formatMcpHelpLines, parseMcpSlashCommand } from '../services/mcp/promptSlash.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
@@ -110,16 +110,17 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       continue
     }
 
-    // MCP slash：先挂材料，再挂开场模板，然后开一轮（不把 slash 原文当 user）
+    // MCP slash：先 get prompt，再按 @server:uri（或 fallback）挂材料，然后开一轮
     const mcpSlash = parseMcpSlashCommand(trimmed, mcpCommands)
     if (mcpSlash) {
       try {
-        const resources = await loadServerResourcesAsMetaMessages(
+        const promptMessages = await mcpSlash.command.run(mcpSlash.argsLine)
+        const resources = await resolvePromptResourceMessages(
           mcpClients,
           mcpSlash.command.serverId,
+          promptMessages,
           { warn: msg => print(msg) },
         )
-        const promptMessages = await mcpSlash.command.run(mcpSlash.argsLine)
         if (resources.length > 0) {
           print(
             `已挂载 MCP Resource ×${resources.length}（server=${mcpSlash.command.serverId}）`,

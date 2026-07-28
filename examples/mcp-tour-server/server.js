@@ -131,7 +131,7 @@ server.setRequestHandler(GetPromptRequestSchema, async request => {
           type: 'text',
           text: [
             `请帮我规划去「${city}」的 ${days} 天差旅。`,
-            '要求：先阅读差旅手册（若已挂载），再给出日程草案。',
+            '要求：先阅读 @tour:docs://handbook ，再给出日程草案。',
             '不要编造公司政策；政策以手册为准。',
           ].join('\n'),
         },

@@ -23,11 +23,11 @@ const client = new Client({ name: 'how-to-host', version: '0.0.0' })
 await client.connect(transport)
 
 // —— 真实 Host 会做的三步 ——
-// 1) 用户在 UI 勾选「差旅手册」→ 你 readResource，塞进本轮上下文
+// 1) Prompt 文本里有 @tour:docs://handbook → Host readResource，塞进本轮（无 @ 时才 fallback 全量）
 const handbook = await client.readResource({ uri: 'docs://handbook' })
 const handbookText = handbook.contents?.[0]?.text ?? ''
 
-// 2) 用户点斜杠命令 /plan_trip → 你 getPrompt，把返回的 messages 当用户开场
+// 2) 用户点斜杠命令 /tour:plan_trip → 你 getPrompt，把返回的 messages 当用户开场
 const prompt = await client.getPrompt({
   name: 'plan_trip',
   arguments: { city: '巴黎', days: '3' },

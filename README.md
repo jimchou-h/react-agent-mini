@@ -103,12 +103,13 @@ Skill({ "skill": "echo-demo" })
 
 - **Tools**：以 `mcp__<server>__<tool>` 合并进会话（`.` / 空格 → `_`）
 - **Resources**：server 声明 `resources` 时，追加 `ListMcpResourcesTool` / `ReadMcpResourceTool` 供模型 list/read
-- **Prompts**：server 声明 `prompts` 时，REPL 可用 `/server:prompt args`（或 `/server:prompt (MCP) args`）拉取模板并注入当前 turn（headless 不自动执行 slash）
+- **Prompts**：server 声明 `prompts` 时，REPL 可用 `/server:prompt args`（或 `/server:prompt (MCP) args`）拉取模板并注入当前 turn。Host 优先按模板中的 `@server:uri` 挂载 Resource；无引用时 fallback 全量挂载该 server（headless 不自动执行 slash）
 
 博客分两篇：
 
 - 概念（六大能力 + Demo）：[CSDN](https://blog.csdn.net/weixin_43160044/article/details/163114630) · [`docs/blog/mcp-concepts.md`](docs/blog/mcp-concepts.md)
-- 本仓库接线实现：[CSDN](https://blog.csdn.net/weixin_43160044/article/details/163081253) · [`docs/blog/mcp.md`](docs/blog/mcp.md)
+- Tools 接线实现：[CSDN](https://blog.csdn.net/weixin_43160044/article/details/163081253) · [`docs/blog/mcp.md`](docs/blog/mcp.md)
+- Resources / Prompts 接线：[`docs/blog/mcp-capabilities.md`](docs/blog/mcp-capabilities.md)
 
 ```bash
 # 概念 tour：Tools + Resources + Prompts（API 分别打一遍）
@@ -122,6 +123,7 @@ cp .mcp.json.example .mcp.json
 bun run dev   # 问：用计算器算 17+25
 
 # tour server + REPL：/tour:plan_trip (MCP) Tokyo 3
+# （.mcp.json 中 server key 须为 tour，与 prompt 内 @tour:docs://handbook 一致）
 ```
 
 配置模板（与 `.mcp.json.example` 相同）：
@@ -129,6 +131,10 @@ bun run dev   # 问：用计算器算 17+25
 ```json
 {
   "mcpServers": {
+    "tour": {
+      "command": "node",
+      "args": ["examples/mcp-tour-server/server.js"]
+    },
     "calc": {
       "command": "node",
       "args": ["examples/mcp-calc-server/server.js"]
@@ -143,7 +149,7 @@ bun run dev   # 问：用计算器算 17+25
 | 某 server 连接失败 | stderr 警告并跳过该 server |
 | 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL y/n；headless 需 `ALLOW_WRITE=1`） |
 | Resources | 只读工具；read 失败返回错误 tool_result |
-| Prompts | 仅 REPL slash；不经 Skill 工具 |
+| Prompts | 仅 REPL slash；优先 `@server:uri` 按需挂载，无引用时 fallback 全量；不经 Skill 工具 |
 | 限制 | 仅 stdio；无 SSE/OAuth/Sampling/`resources/subscribe` |
 
 ### Mock 单次问答（无需 API Key）
