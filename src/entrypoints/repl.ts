@@ -4,7 +4,7 @@
  * MCP 相关路径（用户敲 `/tour:plan_trip 石家庄 2`）：
  * 1. 解析成已注册的 prompt 命令
  * 2. `prompts/get` 拿到开场模板
- * 3. 按模板中的 `@server:uri` 按需挂 Resource；无引用则 fallback 全量挂载该 server
+ * 3. 仅按模板中的 `@server:uri` 按需挂 Resource（无引用则不自动挂载）
  * 4. 用空 userText + injectBefore 开一轮，避免把 `/tour:...` 原文送给模型
  */
 
@@ -110,14 +110,13 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       continue
     }
 
-    // MCP slash：先 get prompt，再按 @server:uri（或 fallback）挂材料，然后开一轮
+    // MCP slash：先 get prompt，再仅按 @server:uri 挂材料，然后开一轮
     const mcpSlash = parseMcpSlashCommand(trimmed, mcpCommands)
     if (mcpSlash) {
       try {
         const promptMessages = await mcpSlash.command.run(mcpSlash.argsLine)
         const resources = await resolvePromptResourceMessages(
           mcpClients,
-          mcpSlash.command.serverId,
           promptMessages,
           { warn: msg => print(msg) },
         )

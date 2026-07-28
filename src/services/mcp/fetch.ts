@@ -4,11 +4,12 @@
  * 职责一句话：
  * - Resources：问 server「有哪些材料」「读某一份材料」
  * - Prompts：问 server「有哪些开场模板」，并变成 REPL slash 能跑的命令
- * - slash：先 `prompts/get`，再按 `@server:uri` 按需挂 Resource；无引用时 fallback 全量挂载
+ * - slash：先 `prompts/get`，再仅按 `@server:uri` 按需挂 Resource（无引用则不自动挂载）
  *
  * 约定：list 失败或没能力 → 返回空数组（不拖垮会话）；
  *       read 失败或没能力 → 抛错（调用方做成 tool_result 错误）；
  *       mention read 失败 → warn 跳过，不中断 slash。
+ *       Host 不做「无 mention 全量挂载」（claude-code 无此行为）。
  */
 
 import type { PromptMessage } from '@modelcontextprotocol/sdk/types.js'
@@ -181,36 +182,6 @@ export async function readMcpResource(
 }
 
 /**
- * Host 在跑 MCP slash 时调用：把该 server 上所有 Resource 读出来（fallback）。
- * 当 prompt 文本不含 `@server:uri` 时使用。
- */
-export async function loadServerResourcesAsMetaMessages(
-  clients: readonly McpConnectedClient[],
-  serverId: string,
-  options?: { warn?: (msg: string) => void; maxChars?: number },
-): Promise<UserMessage[]> {
-  const client = clients.find(item => item.serverId === serverId)
-  if (!client?.capabilities?.resources) {
-    return []
-  }
-
-  const listed = await fetchResourcesForClient(client, options)
-  const messages: UserMessage[] = []
-
-  for (const resource of listed) {
-    const msg = await readResourceAsMetaMessage(
-      client,
-      resource.uri,
-      resource.name,
-      options,
-    )
-    if (msg) messages.push(msg)
-  }
-
-  return messages
-}
-
-/**
  * 按 `@server:uri` 引用精确读取 Resource，转为 meta 消息。
  * server 缺失 / 无能力 / read 失败 → warn 跳过，不中断其它引用。
  */
@@ -248,13 +219,11 @@ export async function loadReferencedResourcesAsMetaMessages(
 }
 
 /**
- * 根据 prompt meta 消息决定挂载策略：
- * - 有 `@server:uri` → 只读引用（不做同 server 全量补齐）
- * - 无引用 → fallback 全量挂载 prompt 所属 server
+ * 从 prompt meta 消息解析 `@server:uri` 并按需挂载。
+ * 无任何引用 → `[]`（不对齐「全量挂载」；与 claude-code 一致）。
  */
 export async function resolvePromptResourceMessages(
   clients: readonly McpConnectedClient[],
-  promptServerId: string,
   promptMessages: readonly UserMessage[],
   options?: { warn?: (msg: string) => void; maxChars?: number },
 ): Promise<UserMessage[]> {
@@ -268,10 +237,10 @@ export async function resolvePromptResourceMessages(
     .join('\n')
 
   const refs = extractMcpResourceMentions(text)
-  if (refs.length > 0) {
-    return loadReferencedResourcesAsMetaMessages(clients, refs, options)
+  if (refs.length === 0) {
+    return []
   }
-  return loadServerResourcesAsMetaMessages(clients, promptServerId, options)
+  return loadReferencedResourcesAsMetaMessages(clients, refs, options)
 }
 
 async function readResourceAsMetaMessage(

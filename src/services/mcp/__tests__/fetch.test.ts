@@ -5,7 +5,6 @@ import {
   fetchCommandsForClient,
   fetchResourcesForClient,
   loadReferencedResourcesAsMetaMessages,
-  loadServerResourcesAsMetaMessages,
   promptMessagesToUserMessages,
   readMcpResource,
   resolvePromptResourceMessages,
@@ -146,29 +145,6 @@ describe('readMcpResource', () => {
   })
 })
 
-describe('loadServerResourcesAsMetaMessages', () => {
-  test('reads listed resources into meta messages', async () => {
-    const client = mockClient({
-      capabilities: { resources: {} },
-      listResources: async () => ({
-        resources: [{ uri: 'docs://handbook', name: 'handbook' }],
-      }),
-      readResource: async () => ({
-        contents: [{ uri: 'docs://handbook', text: 'policy body' }],
-      }),
-    })
-    const messages = await loadServerResourcesAsMetaMessages([client], 'demo')
-    expect(messages).toHaveLength(1)
-    expect(messages[0]?.meta).toBe(true)
-    const text =
-      messages[0]?.content[0]?.type === 'text'
-        ? messages[0].content[0].text
-        : ''
-    expect(text).toContain('policy body')
-    expect(text).toContain('docs://handbook')
-  })
-})
-
 describe('extractMcpResourceMentions', () => {
   test('parses @server:uri including :// in uri', () => {
     expect(
@@ -274,7 +250,6 @@ describe('resolvePromptResourceMessages', () => {
 
     const messages = await resolvePromptResourceMessages(
       [tourClient],
-      'tour',
       [prompt],
     )
     expect(listed).toBe(0)
@@ -287,19 +262,23 @@ describe('resolvePromptResourceMessages', () => {
     ).toContain('body:docs://handbook')
   })
 
-  test('fallback full mount when prompt has no @server:uri', async () => {
+  test('returns empty when prompt has no @server:uri (no full mount)', async () => {
+    let listed = 0
     const tourClient = {
       serverId: 'tour',
       capabilities: { resources: {} },
       client: {
-        listResources: async () => ({
-          resources: [
-            { uri: 'docs://handbook', name: 'handbook' },
-            { uri: 'docs://other', name: 'other' },
-          ],
-        }),
-        readResource: async (params: { uri: string }) => ({
-          contents: [{ uri: params.uri, text: `body:${params.uri}` }],
+        listResources: async () => {
+          listed++
+          return {
+            resources: [
+              { uri: 'docs://handbook', name: 'handbook' },
+              { uri: 'docs://other', name: 'other' },
+            ],
+          }
+        },
+        readResource: async () => ({
+          contents: [{ uri: 'docs://x', text: 'should-not-read' }],
         }),
       },
       close: async () => {},
@@ -310,10 +289,10 @@ describe('resolvePromptResourceMessages', () => {
 
     const messages = await resolvePromptResourceMessages(
       [tourClient],
-      'tour',
       [prompt],
     )
-    expect(messages).toHaveLength(2)
+    expect(listed).toBe(0)
+    expect(messages).toEqual([])
   })
 })
 

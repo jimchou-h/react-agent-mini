@@ -70,7 +70,7 @@ describe('runReplSession slash handling', () => {
     expect(printed.some(p => p.includes('/help'))).toBe(true)
   })
 
-  test('MCP slash without @ mention fallback full-mounts server resources', async () => {
+  test('MCP slash without @ mention does not auto-mount resources', async () => {
     const tools = getTools()
     const engine = new QueryEngine({
       tools,
@@ -97,27 +97,23 @@ describe('runReplSession slash handling', () => {
       },
     ]
 
+    let listed = 0
     const mcpClients = [
       {
         serverId: 'tour',
         capabilities: { resources: {} },
         client: {
-          listResources: async () => ({
-            resources: [
-              { uri: 'docs://handbook', name: '差旅手册' },
-              { uri: 'docs://other', name: 'other' },
-            ],
-          }),
-          readResource: async (params: { uri: string }) => ({
-            contents: [
-              {
-                uri: params.uri,
-                text:
-                  params.uri === 'docs://handbook'
-                    ? '# 差旅手册\n经济舱优先'
-                    : 'other-body',
-              },
-            ],
+          listResources: async () => {
+            listed++
+            return {
+              resources: [
+                { uri: 'docs://handbook', name: '差旅手册' },
+                { uri: 'docs://other', name: 'other' },
+              ],
+            }
+          },
+          readResource: async () => ({
+            contents: [{ uri: 'docs://handbook', text: 'should-not-mount' }],
           }),
         },
         close: async () => {},
@@ -145,14 +141,14 @@ describe('runReplSession slash handling', () => {
       },
     })
 
-    expect(printed.some(p => p.includes('已挂载 MCP Resource ×2'))).toBe(true)
+    expect(listed).toBe(0)
+    expect(printed.some(p => p.includes('已挂载 MCP Resource'))).toBe(false)
     const texts = engine.messages
       .filter(m => m.type === 'user')
       .flatMap(m => m.content)
       .filter(b => b.type === 'text')
       .map(b => (b.type === 'text' ? b.text : ''))
-    expect(texts.some(t => t.includes('经济舱优先'))).toBe(true)
-    expect(texts.some(t => t.includes('other-body'))).toBe(true)
+    expect(texts.some(t => t.includes('should-not-mount'))).toBe(false)
     expect(texts.some(t => t.includes('injected:Tokyo'))).toBe(true)
   })
 

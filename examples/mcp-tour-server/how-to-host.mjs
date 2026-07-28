@@ -23,7 +23,7 @@ const client = new Client({ name: 'how-to-host', version: '0.0.0' })
 await client.connect(transport)
 
 // —— 真实 Host 会做的三步 ——
-// 1) Prompt 文本里有 @tour:docs://handbook → Host readResource，塞进本轮（无 @ 时才 fallback 全量）
+// 1) Prompt 含 @tour:docs://handbook → Host 只 read 该 uri（无 @ 则不自动挂载）
 const handbook = await client.readResource({ uri: 'docs://handbook' })
 const handbookText = handbook.contents?.[0]?.text ?? ''
 
