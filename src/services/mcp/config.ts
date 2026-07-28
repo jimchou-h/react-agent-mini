@@ -1,3 +1,10 @@
+/**
+ * MCP 配置加载：读 `.mcp.json` / `MCP_CONFIG`
+ *
+ * 支持逗号分隔多文件合并（后者覆盖同名 server）。
+ * 文件不存在 → undefined；JSON 非法 → 抛错由上层 warn 后跳过。
+ */
+
 import { readFile } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 

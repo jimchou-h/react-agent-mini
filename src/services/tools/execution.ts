@@ -1,3 +1,10 @@
+/**
+ * 单工具执行流水线：查找 → 校验入参 → 权限 → call → 包装 tool_result
+ *
+ * 失败（未知工具、参数错、deny、抛错）一律变成 is_error 的 tool_result，
+ * 不把异常直接甩出 query 循环。
+ */
+
 import { findToolByName, autoAllowCanUseTool } from '../../Tool.js'
 import type { ToolUseContext } from '../../Tool.js'
 import type { ToolUseBlock } from '../../types/message.js'

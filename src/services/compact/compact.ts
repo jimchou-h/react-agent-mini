@@ -1,3 +1,14 @@
+/**
+ * Context Budget：调用模型前裁剪「出站」消息副本
+ *
+ * 管道（对齐 Claude Code 精简版）：
+ * 1. 单条 tool_result 硬截断（budget）
+ * 2. 超阈值 → microcompact：旧的可压缩 tool_result 换成短占位
+ * 3. 仍超 → 按 maxMessages 保尾（不拆开 tool_use/tool_result 配对）
+ *
+ * 只改发给模型的副本，默认不写回会话内存（出站-only）。
+ */
+
 import type {
   Message,
   ToolResultBlock,
@@ -21,6 +32,7 @@ export const COMPACTABLE_TOOLS = new Set([
   'Glob',
 ])
 
+/** 是否允许把该工具的旧 tool_result 换成 microcompact 占位（内置名单 + 全部 mcp__*） */
 export function isCompactableToolName(name: string): boolean {
   return COMPACTABLE_TOOLS.has(name) || name.startsWith('mcp__')
 }
@@ -364,6 +376,7 @@ function retainTail(messages: Message[], maxMessages: number): Message[] {
   if (messages.length <= maxMessages) return messages
 
   let start = messages.length - maxMessages
+  // 切点必须落在「纯文本 user」上，否则会拆开 assistant.tool_use 与后续 tool_result
   while (start < messages.length && !isUserTextMessage(messages[start])) {
     start++
   }

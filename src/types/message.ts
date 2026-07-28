@@ -54,7 +54,10 @@ export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock
 export type UserMessage = {
   type: 'user'
   content: ContentBlock[]
-  /** MCP prompt 等注入消息；不参与用户原文展示 */
+  /**
+   * Host 注入标记（如 MCP Resource / Prompt）。
+   * true 表示不是用户键盘打出来的原话，而是 slash 等路径塞进上下文的材料或模板。
+   */
   meta?: boolean
 }
 

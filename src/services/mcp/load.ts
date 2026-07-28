@@ -1,11 +1,18 @@
+/**
+ * MCP 启动入口：读配置 → 连接 → 给 CLI 用的会话工具表
+ *
+ * `loadMcpTools`：进程启动时调用一次。
+ * `sessionTools`：内置工具 + MCP tools；若有 resources 能力再追加 List/Read 两个内置工具。
+ */
+
 import type { Tools } from '../../Tool.js'
 import { getMcpResourceTools } from '../../tools/McpResourceTools.js'
 import { getTools } from '../../tools/index.js'
-import type { McpSession } from './client.js'
 import { connectMcpSession, mergeTools } from './client.js'
 import type { McpConnectedClient, McpSlashCommand } from './types.js'
 import { loadMcpConfig } from './config.js'
 
+/** 启动加载 MCP 后的统一返回值（无配置时也是这个形状，字段为空） */
 export type LoadedMcp = {
   tools: Tools
   clients: McpConnectedClient[]
@@ -23,7 +30,8 @@ const EMPTY_MCP: LoadedMcp = {
 }
 
 /**
- * 启动时加载 MCP：无配置则返回空工具；失败 server 已在 connect 内降级
+ * 启动时加载 MCP。
+ * 没有 `.mcp.json` / 配置非法：返回空会话，不抛错打断启动。
  */
 export async function loadMcpTools(options?: {
   cwd?: string
@@ -48,7 +56,12 @@ export async function loadMcpTools(options?: {
   return connectMcpSession(config, { warn, cwd })
 }
 
-/** builtin + MCP 合并后的会话工具表（含 resource 工具） */
+/**
+ * 组装本轮会话最终工具表。
+ *
+ * - 传 `LoadedMcp`：builtin + MCP tools；`hasResources` 为真时再挂上 List/Read
+ * - 传纯 `Tools` 数组：兼容旧调用，只做 builtin + 该数组合并
+ */
 export function sessionTools(mcp: LoadedMcp): Tools
 export function sessionTools(mcpTools: Tools): Tools
 export function sessionTools(mcp: LoadedMcp | Tools = []): Tools {

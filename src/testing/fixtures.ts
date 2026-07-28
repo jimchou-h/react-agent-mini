@@ -1,3 +1,7 @@
+/**
+ * 测试夹具：最小 ToolUseContext
+ */
+
 import type { ToolUseContext, Tools } from '../Tool.js'
 import type { DiscoveredSkill } from '../skills/discover.js'
 import { getTools } from '../tools/index.js'

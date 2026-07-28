@@ -1,3 +1,13 @@
+/**
+ * REPL：读用户输入 → 本地 slash / MCP slash / 普通对话
+ *
+ * MCP 相关路径（用户敲 `/calc:plan_trip 石家庄 2`）：
+ * 1. 解析成已注册的 prompt 命令
+ * 2. 先把该 server 的 Resources（如差旅手册）挂进本轮
+ * 3. 再 `prompts/get` 注入开场白
+ * 4. 用空 userText + injectBefore 开一轮，避免把 `/calc:...` 原文送给模型
+ */
+
 import type { QueryEngine } from '../QueryEngine.js'
 import { loadServerResourcesAsMetaMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
@@ -9,6 +19,7 @@ export function isSkippableReplLine(line: string): boolean {
   return line.trim().length === 0
 }
 
+/** 本地 slash：exit / clear / help（不含 MCP `/server:prompt`） */
 export type SlashCommand =
   | { type: 'exit' }
   | { type: 'clear' }
@@ -19,11 +30,13 @@ const BASE_HELP_TEXT = `可用命令:
   /clear        — 清空会话历史
   /help         — 显示本帮助`
 
+/** 拼本地帮助 + 可选 MCP prompt 列表 */
 export function buildHelpText(mcpCommands: readonly McpSlashCommand[] = []): string {
   const mcpLines = formatMcpHelpLines(mcpCommands)
   if (mcpLines.length === 0) {
     return BASE_HELP_TEXT
   }
+  // 有 MCP prompt 时追加一节，方便用户照着抄
   return `${BASE_HELP_TEXT}\n\nMCP prompts:\n${mcpLines.join('\n')}`
 }
 
@@ -46,10 +59,12 @@ export function parseSlashCommand(line: string): SlashCommand | null {
   return null
 }
 
+/** 是否以 `/` 开头（本地或 MCP slash；未知 slash 也不当普通 user 送模型） */
 export function isSlashLine(line: string): boolean {
   return line.trim().startsWith('/')
 }
 
+/** runReplSession 可注入依赖（engine / 行流 / MCP / 测试钩子） */
 export type ReplSessionDeps = {
   engine: QueryEngine
   lines: AsyncIterable<string>
@@ -95,10 +110,10 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       continue
     }
 
+    // MCP slash：先挂材料，再挂开场模板，然后开一轮（不把 slash 原文当 user）
     const mcpSlash = parseMcpSlashCommand(trimmed, mcpCommands)
     if (mcpSlash) {
       try {
-        // Host：先挂载该 server 的 Resources，再注入 Prompt（对齐 how-to-host）
         const resources = await loadServerResourcesAsMetaMessages(
           mcpClients,
           mcpSlash.command.serverId,
@@ -123,6 +138,7 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       continue
     }
 
+    // 未知 `/...`：只提示，不 runTurn（slash 原文永不作为模型 user）
     if (isSlashLine(trimmed)) {
       if (trimmed.includes(':') && mcpCommands.length > 0) {
         print(

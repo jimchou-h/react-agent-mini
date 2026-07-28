@@ -1,3 +1,10 @@
+/**
+ * query 循环的外部依赖（callModel / uuid / microcompact）
+ *
+ * 生产走 DeepSeek；QUERY_MOCK=1 时用 mockEchoCallModel。
+ * 测试可注入假依赖，不必 mock.module。
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { CallModel } from './types.js'
 import type { CompactOptions, MicrocompactFn } from '../services/compact/compact.js'

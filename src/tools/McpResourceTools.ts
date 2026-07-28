@@ -1,10 +1,23 @@
+/**
+ * 给模型用的 MCP Resource 内置工具（对齐 Claude Code）
+ *
+ * - ListMcpResourcesTool：问「现在连着的 MCP 上有哪些材料」
+ * - ReadMcpResourceTool：按 server + uri 读某一份材料正文
+ *
+ * 这两个工具不在静态 getTools() 里；只有会话里至少有一个 server
+ * 声明了 resources 能力时，才会由 sessionTools() 动态加进去。
+ * 执行时靠 ToolUseContext.mcpClients 找到对应连接。
+ */
+
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'
 import { fetchResourcesForClient, readMcpResource } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpResourceEntry } from '../services/mcp/types.js'
 
+/** 稳定工具名：注册表与测试共用，避免字符串散落 */
 export const LIST_MCP_RESOURCES_TOOL_NAME = 'ListMcpResourcesTool'
 export const READ_MCP_RESOURCE_TOOL_NAME = 'ReadMcpResourceTool'
+/** 单次 read 返回给模型的文本上限 */
 export const MCP_RESOURCE_MAX_CHARS = 100_000
 
 const listInputSchema = z.object({
@@ -30,6 +43,7 @@ function truncateText(text: string, maxChars: number): string {
   return `${text.slice(0, maxChars)}\n\n[truncated: ${text.length} chars total]`
 }
 
+/** 列出已连接 MCP server 上的 Resources（可选按 server 过滤） */
 export const ListMcpResourcesTool: Tool<typeof listInputSchema> = {
   name: LIST_MCP_RESOURCES_TOOL_NAME,
   description:
@@ -76,6 +90,7 @@ export const ListMcpResourcesTool: Tool<typeof listInputSchema> = {
   },
 }
 
+/** 读取指定 server 上某一 uri 的 Resource 正文 */
 export const ReadMcpResourceTool: Tool<typeof readInputSchema> = {
   name: READ_MCP_RESOURCE_TOOL_NAME,
   description: 'Read a specific MCP resource by server name and URI.',
@@ -122,6 +137,7 @@ export const ReadMcpResourceTool: Tool<typeof readInputSchema> = {
   },
 }
 
+/** 返回要动态挂进会话工具表的两个 Resource 工具（始终这一对，不按 server 复制） */
 export function getMcpResourceTools(): Tool[] {
   return [ListMcpResourcesTool, ReadMcpResourceTool]
 }

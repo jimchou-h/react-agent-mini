@@ -44,6 +44,7 @@ function printUsage(): void {
   console.error('  $env:QUERY_MOCK="1"; npx bun run dev -- "你的问题"')
 }
 
+/** mock 模式跳过；否则无 OPENAI_API_KEY 则退出 */
 function ensureAuth(argv: string[]): void {
   if (!isMockMode(argv) && !process.env.OPENAI_API_KEY) {
     console.error('错误: 未设置 OPENAI_API_KEY。')
@@ -52,6 +53,7 @@ function ensureAuth(argv: string[]): void {
   }
 }
 
+/** headless / pipe 共用：单次 query，写权限走 createHeadlessCanUseTool */
 async function runHeadless(
   prompt: string,
   tools: Tools,

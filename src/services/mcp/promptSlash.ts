@@ -1,16 +1,27 @@
+/**
+ * MCP Prompt 的 REPL 输入解析
+ *
+ * 用户在 REPL 里敲类似 `/calc:plan_trip 石家庄 2`，
+ * 这里负责认出「这是哪条已注册的 MCP prompt」以及「后面参数原文是什么」。
+ */
+
 import type { McpSlashCommand } from './types.js'
 
 export type ParsedMcpSlash = {
+  /** 命中的已注册命令 */
   command: McpSlashCommand
+  /** slash 后面留给 prompt 的参数原文（尚未按名拆开） */
   argsLine: string
 }
 
 /**
- * 解析 MCP slash（两种写法，后者更省事）：
- * - `/<server>:<prompt> (MCP) [args...]`（对齐 claude-code 用户面）
- * - `/<server>:<prompt> [args...]`（省略 `(MCP)`，仅当命令已注册时命中）
+ * 解析一行是否为 MCP slash。
  *
- * 例：`/calc:plan_trip (MCP) Tokyo 3` 或 `/calc:plan_trip Tokyo 3`
+ * 支持两种写法（第二种更省事）：
+ * - `/calc:plan_trip (MCP) 石家庄 2` — 对齐 Claude Code 用户面
+ * - `/calc:plan_trip 石家庄 2` — 省略 `(MCP)`，仅当该命令已注册时才算命中
+ *
+ * 未注册 / 格式不对 → `null`（由 REPL 当普通未知 slash 处理）。
  */
 export function parseMcpSlashCommand(
   line: string,
@@ -21,7 +32,7 @@ export function parseMcpSlashCommand(
     return null
   }
 
-  // 优先匹配带 (MCP) 标记的写法
+  // 带 (MCP) 标记
   const withMarker = trimmed.match(
     /^\/([^:\s]+):(\S+)\s+\(MCP\)(?:\s+(.*))?$/i,
   )
@@ -38,6 +49,7 @@ export function parseMcpSlashCommand(
   return null
 }
 
+/** 用 serverId + promptName 在已注册命令里查找；找不到返回 null */
 function resolveMcpSlash(
   commands: readonly McpSlashCommand[],
   serverId: string,
@@ -56,6 +68,7 @@ function resolveMcpSlash(
   return { command, argsLine }
 }
 
+/** 生成 `/help` 里 MCP prompts 那几行说明 */
 export function formatMcpHelpLines(commands: readonly McpSlashCommand[]): string[] {
   if (commands.length === 0) {
     return []

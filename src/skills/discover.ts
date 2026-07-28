@@ -1,19 +1,36 @@
+/**
+ * Skill 发现：扫描工作区里的 SKILL.md，变成可调用列表
+ *
+ * 扫描目录：
+ * - `.agents/skills/<目录名>/SKILL.md`
+ * - `.claude/skills/<目录名>/SKILL.md`
+ *
+ * 调用 ID = 目录名（不是 frontmatter 的 name）；frontmatter `name` 只当展示名。
+ * 正文超过 32KB 会截断，避免撑爆上下文。
+ */
+
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export type DiscoveredSkill = {
-  /** 调用 ID（目录名） */
+  /** 调用 ID（目录名），Skill 工具入参用这个 */
   name: string
   /** frontmatter name，仅用于展示 */
   displayName?: string
   description?: string
+  /** SKILL.md 正文（可能已截断） */
   body: string
+  /** SKILL.md 绝对路径 */
   path: string
 }
 
+/** 单个 SKILL.md 正文 UTF-8 字节上限（超限截断并附说明） */
 export const MAX_SKILL_BYTES = 32 * 1024
 const TRUNCATION_NOTE = '\n\n[skill truncated at 32KB]'
 
+/**
+ * 按 UTF-8 字节截断正文；二分找最大安全 slice，避免按码点截断半个多字节字符。
+ */
 function truncateBody(body: string): string {
   if (Buffer.byteLength(body, 'utf-8') <= MAX_SKILL_BYTES) return body
 
@@ -32,6 +49,10 @@ function truncateBody(body: string): string {
   return `${body.slice(0, low)}${TRUNCATION_NOTE}`
 }
 
+/**
+ * 解析单个 SKILL.md：frontmatter + 正文。
+ * 无 frontmatter 时整文件当正文；`name` 字段只写入 displayName。
+ */
 function parseSkill(
   source: string,
   path: string,
@@ -63,6 +84,7 @@ function parseSkill(
   }
 }
 
+/** 扫描某个 skills 根目录下的一级子目录 */
 async function discoverUnder(root: string): Promise<DiscoveredSkill[]> {
   let entries
   try {
@@ -78,13 +100,16 @@ async function discoverUnder(root: string): Promise<DiscoveredSkill[]> {
     try {
       skills.push(parseSkill(await readFile(path, 'utf-8'), path, entry.name))
     } catch {
-      // A skill directory without SKILL.md is not a discoverable skill.
+      // 目录存在但没有 SKILL.md → 不算可发现 skill
     }
   }
   return skills
 }
 
-/** Discover workspace-local skills. */
+/**
+ * 发现当前工作区全部本地 Skill（`.agents` + `.claude` 两处合并）。
+ * 目录都不存在时返回空数组，不抛错。
+ */
 export async function discoverSkills(
   cwd: string = process.cwd(),
 ): Promise<DiscoveredSkill[]> {

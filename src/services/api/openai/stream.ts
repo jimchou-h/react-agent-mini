@@ -1,3 +1,9 @@
+/**
+ * 解析 OpenAI SSE 流：delta → 内部 StreamEvent / 最终 AssistantMessage
+ *
+ * 文本增量立刻 yield；tool_calls 分片按 index 拼完再 yield 一整条 assistant。
+ */
+
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions'
 import type { AssistantMessage, StreamEvent } from '../../../types/message.js'
 import { createAssistantMessage } from '../../../utils/messages.js'
@@ -83,6 +89,7 @@ export async function* parseOpenAIStream(
   }
 }
 
+/** 非法 / 非对象 JSON 静默成 {}，避免整轮流式因碎片参数解析失败而中断 */
 function parseToolArguments(raw: string): Record<string, unknown> {
   if (!raw) return {}
   try {

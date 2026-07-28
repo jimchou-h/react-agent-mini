@@ -1,3 +1,10 @@
+/**
+ * 生产用 callModel：DeepSeek / OpenAI 兼容 Chat Completions
+ *
+ * 读环境变量 → 建 OpenAI SDK client → 流式请求 → 解析成内部 StreamEvent。
+ * 本地无 Key 时用 QUERY_MOCK=1 走 mock（见 deps.ts）。
+ */
+
 import OpenAI from 'openai'
 import type { CallModelParams } from '../../query/types.js'
 import type { AssistantMessage, StreamEvent } from '../../types/message.js'
@@ -5,6 +12,7 @@ import { messagesToOpenAI, toolsToOpenAI } from './openai/adapter.js'
 import { parseOpenAIStream } from './openai/stream.js'
 import { trace } from '../../utils/trace.js'
 
+/** DeepSeek / OpenAI 兼容客户端配置（apiKey、baseURL、model） */
 export type OpenAIConfig = {
   apiKey: string
   baseURL: string

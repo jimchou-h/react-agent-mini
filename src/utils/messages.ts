@@ -1,3 +1,10 @@
+/**
+ * 消息工厂与小工具函数
+ *
+ * 构造 user/assistant/tool_result；从 assistant 里抽出 tool_use；
+ * 把一轮 assistant + tool_results 追加进历史。
+ */
+
 import type {
   AssistantMessage,
   ContentBlock,

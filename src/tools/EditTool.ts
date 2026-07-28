@@ -1,3 +1,10 @@
+/**
+ * Edit 工具：在已存在文件里做字符串替换
+ *
+ * 默认要求 old_string 唯一匹配；`replace_all` 可换全部。
+ * 匹配支持 CRLF 规范化与行尾空白回退（见 editMatch.ts）；写回时尽量恢复原换行风格。
+ */
+
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'

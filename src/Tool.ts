@@ -1,8 +1,16 @@
+/**
+ * Tool 契约与执行上下文
+ *
+ * 所有内置 / MCP 适配工具都实现这里的 `Tool` 形状。
+ * `ToolUseContext` 是跑工具时能拿到的会话依赖（工具表、skills、权限、MCP clients）。
+ */
+
 import type { z } from 'zod'
 import type { AssistantMessage, UserMessage } from './types/message.js'
 import type { DiscoveredSkill } from './skills/discover.js'
 import type { McpConnectedClient } from './services/mcp/types.js'
 
+/** 权限回调结果：放行，或拒绝并附上给模型看的说明 */
 export type CanUseToolResult =
   | { behavior: 'allow' }
   | { behavior: 'deny'; message: string }
@@ -30,7 +38,10 @@ export type ToolUseContext = {
   canUseTool?: CanUseTool
   /** 本轮 query 的中止控制器；用户拒绝写操作时 abort，结束本轮 */
   abortController?: AbortController
-  /** 已连接 MCP clients（resource 工具路由） */
+  /**
+   * 已连接的 MCP server 列表。
+   * ListMcpResourcesTool / ReadMcpResourceTool 靠它按 `server` 名找到连接去 list/read。
+   */
   mcpClients?: readonly McpConnectedClient[]
 }
 

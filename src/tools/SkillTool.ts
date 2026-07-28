@@ -1,3 +1,10 @@
+/**
+ * Skill 工具：按目录名加载已发现的 SKILL.md
+ *
+ * tool_result 只回短确认；正文通过 prependMessages 注入本轮（再被 query 送给模型）。
+ * 入参 `skill` 必须是目录名（调用 ID），不是 frontmatter displayName。
+ */
+
 import { dirname } from 'node:path'
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'
@@ -10,6 +17,7 @@ const skillInputSchema = z.object({
 })
 
 function formatSkillInjection(skill: DiscoveredSkill, args?: string): string {
+  // 注入正文前附上 skill 目录与可选 args，方便模型按相对路径理解材料
   const baseDir = dirname(skill.path)
   const parts = [`Base directory for this skill: ${baseDir}`]
   if (args?.trim()) {

@@ -1,3 +1,9 @@
+/**
+ * Write 工具：覆盖写入 cwd 内文件
+ *
+ * 入参 `file_path`；父目录不存在会自动 mkdir；内容 ≤100KB；非只读。
+ */
+
 import { mkdir, stat, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { z } from 'zod'

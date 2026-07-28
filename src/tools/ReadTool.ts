@@ -1,3 +1,10 @@
+/**
+ * Read 工具：读 cwd 内文本文件（带行号）
+ *
+ * 入参用 `file_path`（对齐 Claude Code）。
+ * 路径必须落在当前工作目录内；单文件 ≤100KB；整文件/分段读取都会带 `行号\t内容`。
+ */
+
 import { readFile, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
@@ -22,11 +29,7 @@ const readInputSchema = z.object({
     .describe('读取行数，与 offset 一起分段读取'),
 })
 
-/**
- * 将用户路径解析为绝对路径，并校验落在 cwd 子树内
- *
- * 防止 `../../etc/passwd` 等路径穿越；与 claude-code Read 工具策略一致。
- */
+/** 按行切开；文件以换行结束时去掉 split 产生的空尾项 */
 function splitLines(content: string): string[] {
   const lines = content.split(/\r?\n/)
   if (content.endsWith('\n') || content.endsWith('\r\n')) {
@@ -35,6 +38,7 @@ function splitLines(content: string): string[] {
   return lines
 }
 
+/** offset：未传从第 1 行；传 0 也视为第 1 行（对齐 Claude Code） */
 function normalizeOffset(offset: number | undefined): number {
   if (offset === undefined) {
     return 1
@@ -46,6 +50,10 @@ function formatNumberedLines(lines: string[], startLine: number): string {
   return lines.map((line, i) => `${startLine + i}\t${line}`).join('\n')
 }
 
+/**
+ * 把用户路径解析成绝对路径，并校验必须在 cwd 子树内。
+ * 防止 `../../etc/passwd` 一类路径穿越。
+ */
 export function resolvePathUnderCwd(
   inputPath: string,
   cwd = process.cwd(),
@@ -60,11 +68,7 @@ export function resolvePathUnderCwd(
   return absolute
 }
 
-/**
- * Read 工具 — 读取 cwd 内普通文件的 UTF-8 文本
- *
- * 约束：路径在 cwd 子树、单文件 ≤100KB、只读、v0 auto-allow。
- */
+/** Read 工具 — 读取 cwd 内普通文件的 UTF-8 文本（带行号前缀） */
 export const ReadTool: Tool<typeof readInputSchema> = {
   name: 'Read',
   description: '读取本地文本文件内容（UTF-8），路径必须在当前工作目录内',

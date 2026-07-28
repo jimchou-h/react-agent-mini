@@ -1,3 +1,10 @@
+/**
+ * 内置工具注册表
+ *
+ * `getTools()` 返回静态列表；MCP Resource 两工具不在这里，
+ * 由 sessionTools() 在检测到 resources 能力时动态追加。
+ */
+
 import type { Tools } from '../Tool.js'
 import { BashTool } from './BashTool.js'
 import { EchoTool } from './EchoTool.js'

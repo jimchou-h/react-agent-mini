@@ -1,3 +1,11 @@
+/**
+ * MCP Tool → 内部 Tool 适配
+ *
+ * server 暴露的工具名可能和内置冲突，所以对外一律改成：
+ * `mcp__<server>__<tool>`（`.` / 空格会先变成 `_`）。
+ * call 时再转回 server 原始工具名去 `tools/call`。
+ */
+
 import { z } from 'zod'
 import type { Tool, ToolResult } from '../../Tool.js'
 
@@ -9,16 +17,18 @@ export type McpToolInfo = {
   annotations?: { readOnlyHint?: boolean }
 }
 
+/** 用 MCP 原始 tool 名发起 call（公开名带前缀，call 时仍用服务端原始名） */
 export type McpCallTool = (
   name: string,
   args: Record<string, unknown>,
 ) => Promise<unknown>
 
-/** 公开工具名：`mcp__<server>__<tool>`，避免与 builtin 冲突 */
+/** 公开工具名片段规范化：`.` / 空白 → `_` */
 export function normalizeNameForMCP(name: string): string {
   return name.replace(/[.\s]/g, '_')
 }
 
+/** 会话内注册 / 模型可见的工具名；callTool 仍传 MCP 原始 name */
 export function mcpPublicToolName(serverId: string, toolName: string): string {
   return `mcp__${normalizeNameForMCP(serverId)}__${normalizeNameForMCP(toolName)}`
 }

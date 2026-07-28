@@ -1,6 +1,8 @@
 /**
- * TRACE=1 时输出结构化调试日志到 stderr；否则零开销。
+ * TRACE=1 时往 stderr 打结构化调试行；否则直接 return（零开销）。
+ * 勿往 detail 里塞密钥或完整文件正文。
  */
+
 export function isTraceEnabled(): boolean {
   return process.env.TRACE === '1'
 }

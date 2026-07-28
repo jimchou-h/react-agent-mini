@@ -1,3 +1,10 @@
+/**
+ * CLI 参数与终端状态文案
+ *
+ * 解析 argv（问题文本、--mock、-p）、判断启动模式，
+ * 以及工具开始/失败时打到 stderr 的短状态行。
+ */
+
 import type { ToolResultBlock, ToolUseBlock } from '../types/message.js'
 import { trace } from '../utils/trace.js'
 

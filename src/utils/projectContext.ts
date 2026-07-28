@@ -1,9 +1,18 @@
+/**
+ * 项目上下文加载：向上找 AGENTS.md / CLAUDE.md
+ *
+ * 从 cwd 往上最多 5 层（遇到 `.git` 提前停）。
+ * 同目录两个文件都有则合并；总长超 64KB 截断。
+ * 找不到任何文件 → undefined（会话仍可跑，只是没有项目说明）。
+ */
+
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const AGENTS_FILE = 'AGENTS.md'
 const CLAUDE_FILE = 'CLAUDE.md'
+/** 合并 CLAUDE.md 等项目说明后的 UTF-8 字节上限 */
 export const MAX_PROJECT_CONTEXT_BYTES = 64 * 1024
 const MAX_UP_LEVELS = 5
 const MERGE_SEPARATOR = '\n\n---\n\n'
@@ -17,6 +26,7 @@ async function readOptionalFile(path: string): Promise<string | undefined> {
   }
 }
 
+/** 读某一目录下的 AGENTS.md / CLAUDE.md（有则合并） */
 async function readContextAtDir(dir: string): Promise<string | undefined> {
   const agents = await readOptionalFile(join(dir, AGENTS_FILE))
   const claude = await readOptionalFile(join(dir, CLAUDE_FILE))
@@ -48,7 +58,7 @@ function truncateContent(content: string): string {
 }
 
 /**
- * 从 cwd 向上发现 AGENTS.md / CLAUDE.md，合并后作为项目上下文。
+ * 从 cwd 向上发现项目说明文件并返回合并文本。
  * 无文件时返回 undefined。
  */
 export async function loadProjectContext(

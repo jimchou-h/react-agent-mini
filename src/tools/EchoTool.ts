@@ -1,3 +1,9 @@
+/**
+ * Echo 工具：原样返回 message（联调用）
+ *
+ * 不访问磁盘/网络；用来验证 query → 工具 → tool_result → 下一轮模型的闭环。
+ */
+
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'
 

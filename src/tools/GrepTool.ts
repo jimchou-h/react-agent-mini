@@ -1,3 +1,10 @@
+/**
+ * Grep 工具：在 cwd 子树内按正则搜内容
+ *
+ * 默认 `output_mode=files_with_matches`、`head_limit=250`（对齐 Claude Code）。
+ * 也可 content（匹配行）或 count；路径越界拒绝。
+ */
+
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { z } from 'zod'
@@ -217,6 +224,7 @@ async function listFilesRecursive(
   return files
 }
 
+/** 仅按文件名做 `*` → `.*` 的简易 glob，不是完整路径 glob 引擎 */
 function matchSimpleGlob(name: string, pattern: string): boolean {
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')

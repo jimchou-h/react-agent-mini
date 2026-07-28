@@ -1,3 +1,10 @@
+/**
+ * L1 会话层 QueryEngine
+ *
+ * 管多轮用户输入之间的 messages 累积；每轮 `runTurn` 调一次 `query()`。
+ * REPL 长期持有一个实例；MCP slash 可通过 injectBefore 注入材料/模板。
+ */
+
 import { query } from './query.js'
 import type { QueryDeps } from './query/deps.js'
 import type { Terminal } from './query/types.js'
@@ -6,8 +13,10 @@ import type { Message, QueryYield, UserMessage } from './types/message.js'
 import { createUserMessage } from './utils/messages.js'
 
 export type QueryEngineParams = {
+  /** 本会话可用工具（含 MCP） */
   tools: Tools
   toolUseContext: ToolUseContext
+  /** 覆盖 productionDeps（测试 / mock） */
   deps?: Partial<QueryDeps>
   maxTurns?: number
   systemPrompt?: string
@@ -41,15 +50,17 @@ export class QueryEngine {
   }
 
   /**
-   * 执行一轮用户输入：追加 user → query → 将产出的消息合并回历史
+   * 执行一轮：把本轮消息放进历史，再跑 `query()`，流式产出边走边写入历史。
    *
-   * @param userText - 用户自然语言；MCP slash 等场景可为空字符串
-   * @param options.injectBefore - 在当前 turn 开头注入的 meta 消息（如 MCP prompt）
+   * @param userText - 用户自然语言；MCP slash 场景可传空串
+   * @param options.injectBefore - 先插入的消息（如 MCP Resource + Prompt），再可选追加 userText。
+   *   典型顺序：手册材料 → plan_trip 开场 →（无额外 user 字）→ 调模型
    */
   async *runTurn(
     userText: string,
     options?: { injectBefore?: UserMessage[] },
   ): AsyncGenerator<QueryYield, Terminal> {
+    // 1) Host 注入（meta）；2) 用户原文（可省略）
     if (options?.injectBefore?.length) {
       this.#messages.push(...options.injectBefore)
     }

@@ -1,3 +1,15 @@
+/**
+ * MCP Resources / Prompts 的 Host 读写层
+ *
+ * 职责一句话：
+ * - Resources：问 server「有哪些材料」「读某一份材料」
+ * - Prompts：问 server「有哪些开场模板」，并变成 REPL slash 能跑的命令
+ * - slash 执行前：把该 server 的 Resources 先塞进本轮上下文（meta 消息）
+ *
+ * 约定：list 失败或没能力 → 返回空数组（不拖垮会话）；
+ *       read 失败或没能力 → 抛错（调用方做成 tool_result 错误）。
+ */
+
 import type { PromptMessage } from '@modelcontextprotocol/sdk/types.js'
 import { createUserMessage } from '../../utils/messages.js'
 import type { UserMessage } from '../../types/message.js'
@@ -8,9 +20,13 @@ import type {
   McpSlashCommand,
 } from './types.js'
 
+/** 挂进模型上下文的单份 Resource 正文上限，避免撑爆上下文 */
 export const MCP_RESOURCE_INJECT_MAX_CHARS = 100_000
 
-/** list resources；无 capability 或失败 → [] */
+/**
+ * 向某个 server 要 Resource 列表。
+ * server 没声明 resources、或 list 报错 → `[]`（fail-soft）。
+ */
 export async function fetchResourcesForClient(
   client: McpConnectedClient,
   options?: { warn?: (msg: string) => void },
@@ -37,7 +53,12 @@ export async function fetchResourcesForClient(
   }
 }
 
-/** list prompts → slash 命令；无 capability 或失败 → [] */
+/**
+ * 向某个 server 要 Prompt 列表，并转成 REPL 可用的 slash 命令对象。
+ * server 没声明 prompts、或 list 报错 → `[]`。
+ *
+ * 每个命令的 `run()` 内部会再调 `prompts/get`，把模板变成 meta user 消息。
+ */
 export async function fetchCommandsForClient(
   client: McpConnectedClient,
   options?: { warn?: (msg: string) => void },
@@ -67,6 +88,7 @@ export async function fetchCommandsForClient(
         argNames,
         slashLabel,
         async run(argsLine: string) {
+          // 「石家庄 2」→ 按 argNames 顺序 zip 成 { city: '石家庄', days: '2' }
           const argsArray = argsLine.trim() ? argsLine.trim().split(/\s+/) : []
           const args: Record<string, string> = {}
           for (let i = 0; i < argNames.length; i++) {
@@ -92,7 +114,12 @@ export async function fetchCommandsForClient(
   }
 }
 
-/** read resource；失败抛错 */
+/**
+ * 读取某一份 Resource 的内容。
+ * - 文本：放进 `text`
+ * - 二进制 blob：不把 base64 塞给模型，只给占位说明（`blobSavedTo`）
+ * - 无 resources 能力：抛错
+ */
 export async function readMcpResource(
   client: McpConnectedClient,
   uri: string,
@@ -122,8 +149,11 @@ export async function readMcpResource(
 }
 
 /**
- * Host 侧挂载：读取指定 server 的 resources，转为 meta 消息。
- * 对齐 tour how-to-host：slash prompt 前先把材料塞进本轮上下文。
+ * Host 在跑 MCP slash 之前调用：把该 server 上所有 Resource 读出来，
+ * 变成带 `meta: true` 的 user 消息，先挂进本轮（再挂 Prompt）。
+ *
+ * 这样模型才能看到「差旅手册」等材料，而不是只看到「请先阅读手册」。
+ * 对齐 `examples/mcp-tour-server/how-to-host.mjs` 的「先材料、后开场」顺序。
  */
 export async function loadServerResourcesAsMetaMessages(
   clients: readonly McpConnectedClient[],
@@ -176,6 +206,10 @@ export async function loadServerResourcesAsMetaMessages(
   return messages
 }
 
+/**
+ * 把 MCP `prompts/get` 返回的 messages 转成本会话的 user 消息，并标 meta。
+ * meta 表示：这不是用户亲手打的字，是 Host 注入的模板/材料。
+ */
 export function promptMessagesToUserMessages(
   messages: PromptMessage[],
 ): UserMessage[] {
@@ -187,6 +221,7 @@ export function promptMessagesToUserMessages(
   })
 }
 
+/** 把 prompt 里各种 content 形态压成一段纯文本给模型看 */
 function extractPromptContentText(content: PromptMessage['content']): string {
   if (typeof content === 'string') {
     return content
@@ -207,6 +242,7 @@ function extractPromptContentText(content: PromptMessage['content']): string {
   return JSON.stringify(content)
 }
 
+/** 是否有任一 server 声明了 resources（决定要不要往工具表塞 List/Read 两个内置工具） */
 export function sessionHasResources(
   clients: readonly McpConnectedClient[],
 ): boolean {

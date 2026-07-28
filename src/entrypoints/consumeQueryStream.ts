@@ -1,3 +1,10 @@
+/**
+ * 消费 query / runTurn 流并打印到终端
+ *
+ * 约定：模型文本 → stdout；工具状态/错误 → stderr。
+ * REPL 与 headless 共用，避免两套打印逻辑。
+ */
+
 import type { Terminal } from '../query/types.js'
 import type { QueryYield } from '../types/message.js'
 import { extractToolUseBlocks } from '../utils/messages.js'

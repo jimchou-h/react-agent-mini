@@ -1,3 +1,11 @@
+/**
+ * Bash 工具：在 cwd 下执行一条 shell 命令
+ *
+ * 捕获 stdout/stderr；支持 timeout（默认 120s）；输出超长截断；
+ * 非零退出码以错误语义返回；超时尽力杀进程树（Windows 用 taskkill /T）。
+ * 非只读 → 走 canUseTool 权限。
+ */
+
 import { spawn } from 'node:child_process'
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'

@@ -1,3 +1,8 @@
+/**
+ * ReAct 主循环：callModel → 有 tool_use 则 runTools → 追加消息 → 重复，
+ * 直到无工具调用或达 maxTurns。对外 API 对齐 claude-code 的 query()。
+ */
+
 import { productionDeps } from './query/deps.js'
 import type { QueryDeps } from './query/deps.js'
 import type { QueryParams, QueryState, Terminal } from './query/types.js'

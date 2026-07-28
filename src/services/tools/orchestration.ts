@@ -1,3 +1,10 @@
+/**
+ * 工具编排：同一轮里多个 tool_use 按顺序串行执行
+ *
+ * 每个工具跑完就 yield 一条 tool_result（以及可选的 prependMessages，如 Skill 正文）。
+ * 权限 abort 后停止后续工具。
+ */
+
 import type { ToolUseContext } from '../../Tool.js'
 import type { AssistantMessage, ToolUseBlock, UserMessage } from '../../types/message.js'
 import { runToolUse } from './execution.js'
@@ -28,10 +35,12 @@ export async function* runTools(
   context: ToolUseContext,
 ): AsyncGenerator<ToolOrchestrationUpdate, void> {
   for (const block of toolUseBlocks) {
+    // 用户拒绝写操作后 abort：停止本轮后续工具，避免继续改文件
     if (context.abortController?.signal.aborted) {
       break
     }
     const update = await runToolUse(block, parentMessage, context)
+    // Skill 正文等须先于 tool_result，模型才能在「工具返回」前看到注入材料
     if (update.prependMessages) {
       for (const message of update.prependMessages) {
         yield { message }

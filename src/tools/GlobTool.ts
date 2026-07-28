@@ -1,3 +1,9 @@
+/**
+ * Glob 工具：按 glob 模式列举 cwd 内文件路径
+ *
+ * 使用 Bun 内置 Glob；结果最多 100 条；可选 path 限定子目录。
+ */
+
 import { Glob } from 'bun'
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'

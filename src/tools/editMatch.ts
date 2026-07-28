@@ -1,5 +1,8 @@
 /**
- * Edit 匹配辅助 — 对齐 claude-code findActualString 精简子集
+ * Edit 匹配辅助：在文件里找唯一可替换的 old_string
+ *
+ * 顺序：精确 → CRLF 规范化后精确 → 去行尾空白后再唯一匹配。
+ * 命中后返回原文件上的 [start,end)；写回时用 restoreLineEndings 尽量保留 CRLF。
  */
 
 export type EditMatch = {
@@ -73,6 +76,10 @@ function normalizeNewlines(text: string): string {
   return text.replace(/\r\n/g, '\n')
 }
 
+/**
+ * 去每行行尾空白后再找唯一匹配；模型常省略 trailing space，磁盘文件却有。
+ * 命中后用 expandToOriginalSlice 扩回「含原空白」的切片，写回才不会丢空格。
+ */
 function findUniqueTrimmedLineMatch(
   haystack: string,
   needle: string,
@@ -103,6 +110,9 @@ function trimTrailingWhitespacePerLine(text: string): string {
     .join('\n')
 }
 
+/**
+ * 从 trimmed 匹配起点按行对齐，把范围扩到磁盘上带行尾空白的原文切片。
+ */
 function expandToOriginalSlice(
   haystack: string,
   start: number,
@@ -145,6 +155,10 @@ function mapNormalizedRangeToOriginal(
   return { start: originalStart, end: originalEnd }
 }
 
+/**
+ * 把「LF 规范化文本」上的偏移映射回原文件偏移。
+ * CRLF 在规范化里占 1 个 `\n`，原文件占 2 字符，不能直接用同一 index。
+ */
 function mapNormalizedOffsetToOriginal(
   original: string,
   normalized: string,
@@ -165,6 +179,9 @@ function mapNormalizedOffsetToOriginal(
   return oi
 }
 
+/**
+ * 若原文件是 CRLF，把编辑后的 LF 文本写回成 CRLF，避免无故改换行风格。
+ */
 export function restoreLineEndings(
   original: string,
   editedLf: string,

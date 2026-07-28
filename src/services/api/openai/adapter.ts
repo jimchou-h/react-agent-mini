@@ -1,3 +1,10 @@
+/**
+ * 内部消息形态 ↔ OpenAI Chat Completions 请求格式
+ *
+ * 内部用 Anthropic 风格 content 块；出站前转成 OpenAI messages / tools。
+ * 同一 user 回合里 tool_result 必须排在 text 前面，否则 API 会报错。
+ */
+
 import { z } from 'zod'
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions'
 import type { Tools } from '../../../Tool.js'
@@ -87,6 +94,7 @@ function convertUserMessage(message: UserMessage): ChatCompletionMessageParam[] 
 
   const result: ChatCompletionMessageParam[] = []
 
+  // 必须先发 role:tool，再发同回合的 user 文本；否则 API 报 tool_calls 配对不足
   for (const block of toolResults) {
     result.push({
       role: 'tool',

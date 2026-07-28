@@ -1,3 +1,7 @@
+/**
+ * query() 相关类型：入参、状态机字段、终止原因 Terminal
+ */
+
 import type { QueryDeps } from './deps.js'
 import type { ToolUseContext, Tools } from '../Tool.js'
 import type { CompactOptions } from '../services/compact/compact.js'
