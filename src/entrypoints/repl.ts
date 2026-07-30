@@ -7,11 +7,23 @@
  */
 
 import type { QueryEngine } from '../QueryEngine.js'
+import {
+  estimateContextUsage,
+  formatContextUsage,
+} from '../services/compact/contextUsage.js'
 import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
 import { formatMcpHelpLines, parseMcpSlashCommand } from '../services/mcp/promptSlash.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
+
+/** 轮次结束后打印上下文占用（估算或 lastUsage） */
+function printContextUsage(engine: QueryEngine, print: (text: string) => void): void {
+  const estimate = estimateContextUsage(engine.messages, {
+    usage: engine.lastUsage ?? null,
+  })
+  print(formatContextUsage(estimate))
+}
 
 /** 空行（仅空白）不发起 query */
 export function isSkippableReplLine(line: string): boolean {
@@ -129,6 +141,7 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
             injectBefore: [...resources, ...promptMessages],
           }),
         )
+        printContextUsage(deps.engine, print)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         print(`MCP prompt 失败: ${msg}`)
@@ -169,6 +182,7 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
           injectBefore: resources.length > 0 ? resources : undefined,
         }),
       )
+      printContextUsage(deps.engine, print)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`错误: ${msg}`)

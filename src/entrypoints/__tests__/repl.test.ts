@@ -49,6 +49,7 @@ describe('runReplSession', () => {
     await runReplSession({
       engine,
       lines: lines(),
+      print: () => {},
       consume: async gen => {
         const terminal = await (async () => {
           while (true) {
@@ -64,5 +65,40 @@ describe('runReplSession', () => {
     expect(stdout.join('')).toContain('第一轮')
     expect(stdout.join('')).toContain('第二轮')
     expect(engine.messages.filter(m => m.type === 'user').length).toBe(2)
+  })
+
+  test('prints ctx percent after ordinary turns', async () => {
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: mockTextReply,
+        uuid: () => 'repl-uuid',
+      },
+    })
+
+    const printed: string[] = []
+    async function* lines() {
+      yield '你好'
+      yield '/help'
+      yield '再问'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      print: text => printed.push(text),
+      consume: async gen => {
+        while (true) {
+          const { value, done } = await gen.next()
+          if (done) return value
+        }
+      },
+    })
+
+    const ctxLines = printed.filter(l => /^ctx ~\d+%$/.test(l))
+    expect(printed.some(l => l.includes('/help'))).toBe(true)
+    expect(ctxLines.length).toBe(2)
   })
 })

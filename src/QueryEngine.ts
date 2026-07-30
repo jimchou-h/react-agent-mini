@@ -10,6 +10,7 @@ import type { QueryDeps } from './query/deps.js'
 import type { Terminal } from './query/types.js'
 import type { ToolUseContext, Tools } from './Tool.js'
 import type { Message, QueryYield, UserMessage } from './types/message.js'
+import type { TokenUsage } from './services/compact/contextUsage.js'
 import { createUserMessage } from './utils/messages.js'
 
 export type QueryEngineParams = {
@@ -35,6 +36,7 @@ export class QueryEngine {
   readonly #maxTurns: number | undefined
   readonly #systemPrompt: string | undefined
   #messages: Message[] = []
+  #lastUsage: TokenUsage | null = null
 
   constructor(params: QueryEngineParams) {
     this.#tools = params.tools
@@ -47,6 +49,16 @@ export class QueryEngine {
   /** 当前会话消息历史（只读快照视图，勿外部 mutate） */
   get messages(): Message[] {
     return this.#messages
+  }
+
+  /** 最近一次模型调用的 token usage（若 Provider 未上报则为 null） */
+  get lastUsage(): TokenUsage | null {
+    return this.#lastUsage
+  }
+
+  /** 供 Provider / 测试写入最近一次 usage */
+  setLastUsage(usage: TokenUsage | null): void {
+    this.#lastUsage = usage
   }
 
   /**
@@ -101,5 +113,6 @@ export class QueryEngine {
   /** 清空会话历史 */
   clear(): void {
     this.#messages = []
+    this.#lastUsage = null
   }
 }
