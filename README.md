@@ -21,7 +21,11 @@ bun install
 | `TRACE` | 否 | — | 设为 `1` 向 stderr 打印 `[trace]` 全链路日志 |
 | `ALLOW_WRITE` | 否 | — | 设为 `1` 时 headless/pipe 允许写类工具（含非只读 MCP）；默认拒绝 |
 | `MCP_CONFIG` | 否 | `<cwd>/.mcp.json` | MCP 配置路径；逗号分隔可合并多文件（后者覆盖同名 server） |
-| `COMPACT` | 否 | 开启 | 设为 `0` 关闭出站消息裁剪（compact） |
+| `COMPACT` | 否 | 开启 | 设为 `0` 关闭出站裁剪与自动 LLM 摘要 |
+| `AUTOCOMPACT` | 否 | 开启 | 设为 `0` 关闭自动 LLM 摘要（`/compact` 仍可用） |
+| `AUTOCOMPACT_PERCENT` | 否 | `80` | 上下文占用达到该百分比时尝试自动摘要 |
+| `CONTEXT_WINDOW_TOKENS` | 否 | `128000` | 估算 ctx % 时的窗口大小 |
+| `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 确定性 microcompact / 保尾的出站字符阈值 |
 
 ### Write / Edit 权限（简要）
 
@@ -65,6 +69,7 @@ REPL 内可用：
 |------|------|
 | `/help` | 显示帮助 |
 | `/clear` | 清空会话历史 |
+| `/compact` | LLM 摘要压缩当前会话（打印压缩前后 `ctx ~NN%`） |
 | `/exit` 或 `/quit` | 退出 |
 
 > 若曾设置 `$env:QUERY_MOCK="1"`，请先 `Remove-Item Env:QUERY_MOCK`，否则会一直走仅 Echo 的 mock。

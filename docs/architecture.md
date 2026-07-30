@@ -109,7 +109,7 @@ src/
 1. 超长 `tool_result.content` 截断到 `maxToolResultChars`（默认 4000 字符）并附截断提示
 2. 消息条数超过 `maxMessages`（默认 40）时丢弃最早轮次；裁剪边界对齐 user 纯文本消息，保证 `tool_use`/`tool_result` 配对完整
 
-会话内存（`QueryEngine.messages`）不受影响（出站-only）。`COMPACT=0` 关闭；`TRACE=1` 且发生实质裁剪时输出 `[trace] compact.run`。限制：不做 LLM 摘要、token 精确计数与按工具类型 budget（见 v4 方向）。
+会话内存（`QueryEngine.messages`）在**确定性**裁剪下不受影响（出站-only）。达到占用阈值时可触发 **autocompact**（LLM 摘要写回会话）；REPL 可用 `/compact` 手动压缩。`COMPACT=0` 关闭整条管道；`AUTOCOMPACT=0` 只关自动摘要。`TRACE=1` 且发生实质裁剪时输出 `[trace] compact.run` / `compact.auto`。
 
 ## 项目上下文（systemPrompt）
 

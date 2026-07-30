@@ -14,13 +14,13 @@
 ## 2. LLM compact 核心
 
 - [x] 2.1 实现 `compactConversation`：侧路无工具摘要、compact boundary、保留尾部、写回消息列表；失败不改写 + 单测（stub 摘要）
-- [ ] 2.2 实现 `autoCompactIfNeeded`：阈值判定、`AUTOCOMPACT=0`、连续失败熔断；`COMPACT=0` 整条关闭 + 单测
+- [x] 2.2 实现 `autoCompactIfNeeded`：阈值判定、`AUTOCOMPACT=0`、连续失败熔断；`COMPACT=0` 整条关闭 + 单测
 - [x] 2.3 `QueryEngine.compactNow()`（或等价）封装写回 `#messages`，供 slash / 自动路径共用
 
 ## 3. query 管道接线
 
-- [ ] 3.1 `QueryDeps` 增加 `autocompact`；`query` 在确定性层后调用；mock 模式用假摘要
-- [ ] 3.2 单测：超阈值触发写回；失败回退且会话不变；`AUTOCOMPACT=0` 不触发
+- [x] 3.1 `QueryDeps` 增加 `autocompact`；`query` 在确定性层后调用；mock 模式用假摘要
+- [x] 3.2 单测：超阈值触发写回；失败回退且会话不变；`AUTOCOMPACT=0` 不触发
 
 ## 4. REPL：`/compact` + ctx %
 
@@ -29,5 +29,5 @@
 
 ## 5. 文档与验收
 
-- [ ] 5.1 更新 README / compact CONTEXT：autocompact、`/compact`、`AUTOCOMPACT`、`CONTEXT_WINDOW_TOKENS`、占用 %
-- [ ] 5.2 `bun test` + typecheck；手动或 mock：长会话自动摘要、`/compact`、ctx % 可见
+- [x] 5.1 更新 README / compact CONTEXT：autocompact、`/compact`、`AUTOCOMPACT`、`CONTEXT_WINDOW_TOKENS`、占用 %
+- [x] 5.2 `bun test` + typecheck；手动或 mock：长会话自动摘要、`/compact`、ctx % 可见

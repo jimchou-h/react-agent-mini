@@ -97,10 +97,26 @@ async function* queryLoop(
      */
     let needsFollowUp = false
 
+    // —— 阶段 0：LLM autocompact（可写回会话；失败 keep 原 messages）——
+    const autoResult = await Promise.resolve(
+      deps.autocompact(messages, {
+        systemPrompt: params.systemPrompt,
+      }),
+    )
+    let sessionMessages = messages
+    if (autoResult.compacted) {
+      sessionMessages = autoResult.messages
+      // 写回同一数组引用，便于 QueryEngine.#messages 同步
+      params.messages.length = 0
+      params.messages.push(...sessionMessages)
+      sessionMessages = params.messages
+      state = { ...state, messages: sessionMessages }
+    }
+
     // —— 阶段 1：出站 compact 管道（对齐 claude-code；出站-only）——
     // applyToolResultBudget → deps.microcompact →（重估后）retainTail
     const compactOpts = params.compact
-    let outbound = applyToolResultBudget(messages, compactOpts)
+    let outbound = applyToolResultBudget(sessionMessages, compactOpts)
     outbound = await Promise.resolve(
       deps.microcompact(outbound, compactOpts),
     )
@@ -169,7 +185,7 @@ async function* queryLoop(
 
     // —— 阶段 5：追加历史，进入下一轮 ——
     state = {
-      messages: appendTurnMessages(messages, parentMessage, toolResults),
+      messages: appendTurnMessages(sessionMessages, parentMessage, toolResults),
       turnCount: nextTurnCount,
     }
   }
