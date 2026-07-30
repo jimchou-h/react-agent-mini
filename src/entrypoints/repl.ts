@@ -7,6 +7,7 @@
  */
 
 import type { QueryEngine } from '../QueryEngine.js'
+import type { SummarizeFn } from '../services/compact/autoCompact.js'
 import {
   estimateContextUsage,
   formatContextUsage,
@@ -30,15 +31,17 @@ export function isSkippableReplLine(line: string): boolean {
   return line.trim().length === 0
 }
 
-/** 本地 slash：exit / clear / help（不含 MCP `/server:prompt`） */
+/** 本地 slash：exit / clear / help / compact（不含 MCP `/server:prompt`） */
 export type SlashCommand =
   | { type: 'exit' }
   | { type: 'clear' }
   | { type: 'help' }
+  | { type: 'compact' }
 
 const BASE_HELP_TEXT = `可用命令:
   /exit, /quit  — 退出 REPL
   /clear        — 清空会话历史
+  /compact      — LLM 摘要压缩当前会话
   /help         — 显示本帮助`
 
 /** 拼本地帮助 + 可选 MCP prompt 列表 */
@@ -67,6 +70,9 @@ export function parseSlashCommand(line: string): SlashCommand | null {
   if (trimmed === '/help') {
     return { type: 'help' }
   }
+  if (trimmed === '/compact') {
+    return { type: 'compact' }
+  }
   return null
 }
 
@@ -86,6 +92,8 @@ export type ReplSessionDeps = {
   mcpCommands?: readonly McpSlashCommand[]
   /** 已连接 MCP clients；slash 时用于挂载同 server 的 Resources */
   mcpClients?: readonly McpConnectedClient[]
+  /** `/compact` 侧路摘要；缺省时打印需注入的错误 */
+  summarizeForCompact?: SummarizeFn
 }
 
 /**
@@ -117,6 +125,26 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
     }
     if (slash?.type === 'help') {
       print(buildHelpText(mcpCommands))
+      deps.onAfterTurn?.()
+      continue
+    }
+    if (slash?.type === 'compact') {
+      if (!deps.summarizeForCompact) {
+        print('压缩失败: 未配置摘要函数（summarizeForCompact）')
+        deps.onAfterTurn?.()
+        continue
+      }
+      try {
+        const result = await deps.engine.compactNow({
+          summarize: deps.summarizeForCompact,
+        })
+        print(
+          `已压缩会话（${formatContextUsage(result.before)} → ${formatContextUsage(result.after)}）`,
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        print(`压缩失败: ${msg}`)
+      }
       deps.onAfterTurn?.()
       continue
     }
@@ -224,14 +252,24 @@ export async function runRepl(
   options?: {
     mcpCommands?: readonly McpSlashCommand[]
     mcpClients?: readonly McpConnectedClient[]
+    summarizeForCompact?: SummarizeFn
   },
 ): Promise<void> {
+  const { productionDeps } = await import('../query/deps.js')
+  const { createSummarizeFromCallModel } = await import(
+    '../services/compact/autoCompact.js'
+  )
+  const summarizeForCompact =
+    options?.summarizeForCompact ??
+    createSummarizeFromCallModel(productionDeps().callModel)
+
   if (existingRl) {
     await runReplSession({
       engine,
       lines: linesFromReadlineQuestions(existingRl),
       mcpCommands: options?.mcpCommands,
       mcpClients: options?.mcpClients,
+      summarizeForCompact,
     })
     return
   }
@@ -246,6 +284,7 @@ export async function runRepl(
       lines: linesFromReadlineQuestions(rl),
       mcpCommands: options?.mcpCommands,
       mcpClients: options?.mcpClients,
+      summarizeForCompact,
     })
   } finally {
     rl.close()

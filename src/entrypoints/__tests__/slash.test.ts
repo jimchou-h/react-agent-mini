@@ -21,6 +21,10 @@ describe('parseSlashCommand', () => {
     expect(parseSlashCommand('/help')).toEqual({ type: 'help' })
   })
 
+  test('parses compact', () => {
+    expect(parseSlashCommand('/compact')).toEqual({ type: 'compact' })
+  })
+
   test('returns null for normal prompts', () => {
     expect(parseSlashCommand('你好')).toBeNull()
     expect(parseSlashCommand('/unknown')).toBeNull()
@@ -68,6 +72,108 @@ describe('runReplSession slash handling', () => {
     expect(engine.messages).toEqual([])
     expect(printed.some(p => p.includes('会话已清空'))).toBe(true)
     expect(printed.some(p => p.includes('/help'))).toBe(true)
+  })
+
+  test('/compact rewrites session and prints before/after ctx', async () => {
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: async function* mock() {
+          yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+        },
+        uuid: () => 'compact-uuid',
+      },
+    })
+
+    const printed: string[] = []
+    let turnCount = 0
+
+    async function* lines() {
+      yield '第一轮'
+      yield '第二轮'
+      yield '第三轮'
+      yield '/compact'
+      yield '/exit'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      print: t => printed.push(t),
+      summarizeForCompact: async () => '测试摘要',
+      consume: async gen => {
+        turnCount++
+        while (true) {
+          const { done, value } = await gen.next()
+          if (done) return value
+        }
+      },
+    })
+
+    expect(turnCount).toBe(3)
+    expect(printed.some(p => p.includes('已压缩会话'))).toBe(true)
+    expect(printed.some(p => p.includes('ctx ~'))).toBe(true)
+    expect(
+      engine.messages.some(
+        m =>
+          m.type === 'user' &&
+          m.meta &&
+          m.content.some(
+            b => b.type === 'text' && b.text.includes('compact boundary'),
+          ),
+      ),
+    ).toBe(true)
+  })
+
+  test('/compact failure leaves session unchanged', async () => {
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: async function* mock() {
+          yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+        },
+        uuid: () => 'compact-fail',
+      },
+    })
+
+    const printed: string[] = []
+    async function* lines() {
+      yield 'hello'
+      yield '/compact'
+      yield '/exit'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      print: t => printed.push(t),
+      summarizeForCompact: async () => {
+        throw new Error('nope')
+      },
+      consume: async gen => {
+        while (true) {
+          const { done, value } = await gen.next()
+          if (done) return value
+        }
+      },
+    })
+
+    expect(printed.some(p => p.includes('压缩失败'))).toBe(true)
+    expect(engine.messages.some(m => m.type === 'user')).toBe(true)
+    expect(
+      engine.messages.some(
+        m =>
+          m.type === 'user' &&
+          m.meta &&
+          m.content.some(
+            b => b.type === 'text' && b.text.includes('compact boundary'),
+          ),
+      ),
+    ).toBe(false)
   })
 
   test('MCP slash without @ mention does not auto-mount resources', async () => {
@@ -333,5 +439,6 @@ describe('buildHelpText', () => {
       },
     ])
     expect(text).toContain('tour:plan_trip (MCP)')
+    expect(text).toContain('/compact')
   })
 })

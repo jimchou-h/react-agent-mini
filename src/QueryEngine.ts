@@ -10,7 +10,15 @@ import type { QueryDeps } from './query/deps.js'
 import type { Terminal } from './query/types.js'
 import type { ToolUseContext, Tools } from './Tool.js'
 import type { Message, QueryYield, UserMessage } from './types/message.js'
-import type { TokenUsage } from './services/compact/contextUsage.js'
+import {
+  compactConversation,
+  type SummarizeFn,
+} from './services/compact/autoCompact.js'
+import {
+  estimateContextUsage,
+  type ContextUsageEstimate,
+  type TokenUsage,
+} from './services/compact/contextUsage.js'
 import { createUserMessage } from './utils/messages.js'
 
 export type QueryEngineParams = {
@@ -108,6 +116,32 @@ export class QueryEngine {
       }
       yield value
     }
+  }
+
+  /**
+   * 手动 LLM compact：写回 `#messages`。
+   * 失败时抛错且不修改会话。
+   */
+  async compactNow(options: {
+    summarize: SummarizeFn
+    keepRecentMessages?: number
+  }): Promise<{
+    summary: string
+    before: ContextUsageEstimate
+    after: ContextUsageEstimate
+  }> {
+    const before = estimateContextUsage(this.#messages, {
+      usage: this.#lastUsage,
+    })
+    const { messages, summary } = await compactConversation(this.#messages, {
+      summarize: options.summarize,
+      keepRecentMessages: options.keepRecentMessages,
+      systemPrompt: this.#systemPrompt,
+    })
+    this.#messages = messages
+    this.#lastUsage = null
+    const after = estimateContextUsage(this.#messages, { usage: null })
+    return { summary, before, after }
   }
 
   /** 清空会话历史 */
