@@ -222,6 +222,9 @@ export async function runPostToolUse(
         console.error(
           `[hooks] PostToolUse failed for ${toolName} (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`,
         )
+      } else if (result.stderr.trim()) {
+        // 成功时仍透出 hook 的 stderr（示例日志 / 审计输出）
+        console.error(result.stderr.trim())
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

@@ -55,6 +55,19 @@ function ensureAuth(argv: string[]): void {
   }
 }
 
+/**
+ * 会话 ToolUseContext：基于测试夹具，但去掉 hooksConfig:null，
+ * 以便运行时从 `.agents/hooks.json` 加载（undefined → loadHooksConfig）。
+ */
+function createSessionToolContext(
+  tools: Tools,
+  skills?: readonly DiscoveredSkill[],
+  extras?: Partial<ReturnType<typeof createMinimalToolContext>>,
+) {
+  const { hooksConfig: _skip, ...base } = createMinimalToolContext(tools, skills)
+  return { ...base, ...extras }
+}
+
 /** headless / pipe 共用：单次 query；写权限走 createHeadlessCanUseTool；解析 @server:uri */
 async function runHeadless(
   prompt: string,
@@ -63,11 +76,10 @@ async function runHeadless(
   skills?: readonly DiscoveredSkill[],
   mcpClients?: readonly McpConnectedClient[],
 ): Promise<void> {
-  const context = {
-    ...createMinimalToolContext(tools, skills),
+  const context = createSessionToolContext(tools, skills, {
     mcpClients,
     canUseTool: createHeadlessCanUseTool(),
-  }
+  })
   const userMessage = createUserMessage(prompt)
   const resources = await resolvePromptResourceMessages(
     mcpClients ?? [],
@@ -128,11 +140,10 @@ async function main(): Promise<void> {
     const ask = async (prompt: string): Promise<string> => rl.question(prompt)
     const engine = new QueryEngine({
       tools,
-      toolUseContext: {
-        ...createMinimalToolContext(tools, skills),
+      toolUseContext: createSessionToolContext(tools, skills, {
         mcpClients: mcp.clients,
         canUseTool: createReplCanUseTool(ask),
-      },
+      }),
       systemPrompt,
     })
     try {
