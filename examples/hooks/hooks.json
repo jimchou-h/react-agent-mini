@@ -1,0 +1,14 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "command": "node examples/hooks/deny-bash.mjs"
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "*",
+      "command": "node examples/hooks/log-post.mjs"
+    }
+  ]
+}

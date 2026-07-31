@@ -26,6 +26,20 @@ bun install
 | `AUTOCOMPACT_PERCENT` | 否 | `80` | 上下文占用达到该百分比时尝试自动摘要 |
 | `CONTEXT_WINDOW_TOKENS` | 否 | `128000` | 估算 ctx % 时的窗口大小 |
 | `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 确定性 microcompact / 保尾的出站字符阈值 |
+| `HOOKS` | 否 | 开启 | 设为 `0` 跳过 `.agents/hooks.json` 中的生命周期 hooks |
+
+### Hooks（PreToolUse / PostToolUse）
+
+在项目根放置 `.agents/hooks.json`，可在权限通过后、工具 `call` 前后跑命令型 hook：
+
+| 事件 | 时机 | 失败行为 |
+|------|------|----------|
+| **PreToolUse** | `call` 前 | `exit 2` 或 stdout JSON `permissionDecision: "deny"` → 不执行工具；其它非 0 默认 fail-soft（可设 `denyOnFailure`） |
+| **PostToolUse** | `call` 后 | 只警告，不撤销已有 `tool_result` |
+
+matcher 为工具名精确匹配或 `*`。命令经 shell 执行，stdin 为 JSON payload（含 `tool_name` / `tool_input` 等）。**命令可执行任意代码，只信任本工作区配置。**
+
+示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post`。本版不做 Stop hook。
 
 ### Write / Edit 权限（简要）
 
