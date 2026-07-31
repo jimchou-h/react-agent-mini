@@ -9,6 +9,7 @@ import type { z } from 'zod'
 import type { AssistantMessage, UserMessage } from './types/message.js'
 import type { DiscoveredSkill } from './skills/discover.js'
 import type { McpConnectedClient } from './services/mcp/types.js'
+import type { HookExecFn, HooksConfig } from './services/hooks/types.js'
 
 /** 权限回调结果：放行，或拒绝并附上给模型看的说明 */
 export type CanUseToolResult =
@@ -43,6 +44,13 @@ export type ToolUseContext = {
    * ListMcpResourcesTool / ReadMcpResourceTool 靠它按 `server` 名找到连接去 list/read。
    */
   mcpClients?: readonly McpConnectedClient[]
+  /**
+   * 已加载的 hooks 配置；`null` 表示显式禁用/无配置。
+   * 未设置时 runToolUse 按 cwd 懒加载（受 `HOOKS=0` 约束）。
+   */
+  hooksConfig?: HooksConfig | null
+  /** 测试可注入假 hook 执行器，避免真 spawn */
+  hookExec?: HookExecFn
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */

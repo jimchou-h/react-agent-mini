@@ -15,5 +15,10 @@ export function createMinimalToolContext(
   tools?: Tools,
   skills?: readonly DiscoveredSkill[],
 ): ToolUseContext {
-  return { tools: tools ?? getTools(), skills }
+  return {
+    tools: tools ?? getTools(),
+    skills,
+    // 测试默认不加载磁盘 hooks，避免 cwd 下真实配置污染用例
+    hooksConfig: null,
+  }
 }

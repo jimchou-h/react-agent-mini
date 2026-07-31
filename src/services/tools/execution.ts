@@ -1,5 +1,5 @@
 /**
- * 单工具执行流水线：查找 → 校验入参 → 权限 → call → 包装 tool_result
+ * 单工具执行流水线：查找 → 校验入参 → 权限 → PreToolUse → call → PostToolUse → 包装 tool_result
  *
  * 失败（未知工具、参数错、deny、抛错）一律变成 is_error 的 tool_result，
  * 不把异常直接甩出 query 循环。
@@ -11,6 +11,9 @@ import type { ToolUseBlock } from '../../types/message.js'
 import type { AssistantMessage, UserMessage } from '../../types/message.js'
 import { createToolResultMessage } from '../../utils/messages.js'
 import { trace } from '../../utils/trace.js'
+import { loadHooksConfig } from '../hooks/load.js'
+import { runPostToolUse, runPreToolUse } from '../hooks/run.js'
+import type { HooksConfig } from '../hooks/types.js'
 
 /**
  * 单工具执行完成后的更新包
@@ -30,6 +33,13 @@ function isErrorResult(message: UserMessage): boolean {
   )
 }
 
+function resolveHooksConfig(context: ToolUseContext): HooksConfig | null {
+  if (context.hooksConfig !== undefined) {
+    return context.hooksConfig
+  }
+  return loadHooksConfig()
+}
+
 /**
  * 执行单个 tool_use 块 — 对齐 claude-code runToolUse
  *
@@ -37,8 +47,10 @@ function isErrorResult(message: UserMessage): boolean {
  * 1. findToolByName 查找工具定义
  * 2. inputSchema.safeParse 校验模型传入的 JSON
  * 3. canUseTool 权限检查（缺省 auto-allow）
- * 4. tool.call() 执行业务逻辑
- * 5. 将结果或错误包装为 createToolResultMessage
+ * 4. PreToolUse hooks（可 deny）
+ * 5. tool.call() 执行业务逻辑
+ * 6. PostToolUse hooks（fail-soft）
+ * 7. 将结果或错误包装为 createToolResultMessage
  *
  * @param block - 模型发起的 tool_use 块
  * @param _parentMessage - 父级 assistant 消息（claude-code 用于钩子，v0 未用）
@@ -94,24 +106,50 @@ export async function runToolUse(
     })
   }
 
-  try {
-    const result = await tool.call(parsed.data, context)
-    const text =
-      typeof result.data === 'string'
-        ? result.data
-        : JSON.stringify(result.data)
+  const hooksConfig = resolveHooksConfig(context)
+  const hookOpts = context.hookExec ? { exec: context.hookExec } : undefined
+  const pre = await runPreToolUse(
+    hooksConfig,
+    block.name,
+    parsed.data,
+    hookOpts,
+  )
+  if (pre.behavior === 'deny') {
     return finish({
       message: createToolResultMessage(
         block.id,
-        text,
-        result.isError === true,
+        pre.message ?? 'blocked by PreToolUse hook',
+        true,
       ),
-      prependMessages: result.prependMessages,
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return finish({
-      message: createToolResultMessage(block.id, msg, true),
     })
   }
+
+  let resultText = ''
+  let isError = false
+  let prependMessages: UserMessage[] | undefined
+  try {
+    const result = await tool.call(parsed.data, context)
+    resultText =
+      typeof result.data === 'string'
+        ? result.data
+        : JSON.stringify(result.data)
+    isError = result.isError === true
+    prependMessages = result.prependMessages
+  } catch (err) {
+    resultText = err instanceof Error ? err.message : String(err)
+    isError = true
+  }
+
+  await runPostToolUse(
+    hooksConfig,
+    block.name,
+    parsed.data,
+    { text: resultText, isError },
+    hookOpts,
+  )
+
+  return finish({
+    message: createToolResultMessage(block.id, resultText, isError),
+    prependMessages,
+  })
 }

@@ -112,6 +112,90 @@ describe('runToolUse permissions', () => {
     }
   })
 
+  test('PreToolUse deny skips tool.call and returns is_error', async () => {
+    let called = false
+    const spyTool = createSpyTool(() => {
+      called = true
+    })
+    const block: ToolUseBlock = {
+      type: 'tool_use',
+      id: 'toolu_hook_deny_1',
+      name: 'Spy',
+      input: { value: 'secret' },
+    }
+    const parent = createAssistantMessage([block])
+
+    const update = await runToolUse(block, parent, {
+      ...createMinimalToolContext([spyTool]),
+      canUseTool: async () => ({ behavior: 'allow' }),
+      hooksConfig: {
+        PreToolUse: [{ matcher: 'Spy', command: 'deny-hook' }],
+      },
+      hookExec: async () => ({
+        exitCode: 2,
+        stdout: '',
+        stderr: 'hook blocked',
+      }),
+    })
+
+    expect(called).toBe(false)
+    const result = update.message.content[0]
+    expect(result.type).toBe('tool_result')
+    if (result.type === 'tool_result') {
+      expect(result.is_error).toBe(true)
+      expect(result.content).toBe('hook blocked')
+    }
+  })
+
+  test('PostToolUse runs after call and fail-soft on error', async () => {
+    let called = false
+    let postPayload: unknown
+    const spyTool = createSpyTool(() => {
+      called = true
+    })
+    const block: ToolUseBlock = {
+      type: 'tool_use',
+      id: 'toolu_hook_post_1',
+      name: 'Spy',
+      input: { value: 'ok' },
+    }
+    const parent = createAssistantMessage([block])
+    const errors: string[] = []
+    const prevErr = console.error
+    console.error = (...args: unknown[]) => {
+      errors.push(String(args[0]))
+    }
+
+    try {
+      const update = await runToolUse(block, parent, {
+        ...createMinimalToolContext([spyTool]),
+        canUseTool: async () => ({ behavior: 'allow' }),
+        hooksConfig: {
+          PostToolUse: [{ matcher: 'Spy', command: 'post-hook' }],
+        },
+        hookExec: async (_cmd, payload) => {
+          postPayload = payload
+          return { exitCode: 1, stdout: '', stderr: 'post oops' }
+        },
+      })
+
+      expect(called).toBe(true)
+      expect(postPayload).toMatchObject({
+        hook_event_name: 'PostToolUse',
+        tool_name: 'Spy',
+      })
+      const result = update.message.content[0]
+      expect(result.type).toBe('tool_result')
+      if (result.type === 'tool_result') {
+        expect(result.is_error).toBeUndefined()
+        expect(result.content).toBe('ok')
+      }
+      expect(errors.some(e => e.includes('PostToolUse'))).toBe(true)
+    } finally {
+      console.error = prevErr
+    }
+  })
+
   test('ToolResult.isError marks tool_result as is_error', async () => {
     const tool: Tool = {
       name: 'SoftFail',
@@ -195,6 +279,40 @@ describe('runToolUse trace', () => {
           l.includes('name=Echo') &&
           l.includes('ok=true'),
       ),
+    ).toBe(true)
+  })
+
+  test('emits hooks.pre and hooks.post when TRACE=1', async () => {
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    }
+
+    const spyTool = createSpyTool()
+    const block: ToolUseBlock = {
+      type: 'tool_use',
+      id: 'toolu_hook_trace_1',
+      name: 'Spy',
+      input: { value: 'hi' },
+    }
+    const parent = createAssistantMessage([block])
+
+    await runToolUse(block, parent, {
+      ...createMinimalToolContext([spyTool]),
+      canUseTool: async () => ({ behavior: 'allow' }),
+      hooksConfig: {
+        PreToolUse: [{ matcher: 'Spy', command: 'pre' }],
+        PostToolUse: [{ matcher: 'Spy', command: 'post' }],
+      },
+      hookExec: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+    })
+
+    expect(
+      lines.some(l => l.includes('hooks.pre') && l.includes('tool=Spy')),
+    ).toBe(true)
+    expect(
+      lines.some(l => l.includes('hooks.post') && l.includes('tool=Spy')),
     ).toBe(true)
   })
 })
