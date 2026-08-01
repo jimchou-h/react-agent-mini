@@ -363,4 +363,83 @@ describe('query', () => {
     )
     expect(toolResults.length).toBe(1)
   })
+
+  test('aborted mid-batch still yields tool_result for every tool_use', async () => {
+    async function* mockBatch(): AsyncGenerator<StreamEvent | AssistantMessage> {
+      yield createAssistantMessage([
+        {
+          type: 'tool_use',
+          id: 'toolu_echo_ok',
+          name: 'Echo',
+          input: { message: 'before' },
+        },
+        {
+          type: 'tool_use',
+          id: 'toolu_write_deny',
+          name: 'Write',
+          input: { file_path: 'x.txt', content: 'nope' },
+        },
+        {
+          type: 'tool_use',
+          id: 'toolu_echo_skip',
+          name: 'Echo',
+          input: { message: 'after' },
+        },
+      ])
+    }
+
+    const tools = getTools()
+    const abortController = new AbortController()
+    const { terminal, collected } = await drainQuery(
+      query({
+        messages: [createUserMessage('batch')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          abortController,
+          canUseTool: async tool => {
+            if (tool.name === 'Write') {
+              abortController.abort('user_reject')
+              return {
+                behavior: 'deny',
+                message: '用户拒绝了该工具调用',
+              }
+            }
+            return { behavior: 'allow' }
+          },
+        },
+        deps: {
+          callModel: mockBatch,
+          uuid: () => 'abort-batch-uuid',
+        },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'aborted' })
+
+    const resultIds: string[] = []
+    for (const m of collected) {
+      if (m.type !== 'user') continue
+      for (const b of m.content) {
+        if (b.type === 'tool_result') resultIds.push(b.tool_use_id)
+      }
+    }
+    expect(resultIds).toEqual([
+      'toolu_echo_ok',
+      'toolu_write_deny',
+      'toolu_echo_skip',
+    ])
+
+    const skipped = collected
+      .flatMap(m => (m.type === 'user' ? m.content : []))
+      .find(
+        b =>
+          b.type === 'tool_result' && b.tool_use_id === 'toolu_echo_skip',
+      )
+    expect(skipped?.type).toBe('tool_result')
+    if (skipped?.type === 'tool_result') {
+      expect(skipped.is_error).toBe(true)
+      expect(skipped.content).toContain('Skipped because')
+    }
+  })
 })

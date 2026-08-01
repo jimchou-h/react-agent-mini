@@ -2,12 +2,19 @@
  * 工具编排：同一轮里多个 tool_use 按顺序串行执行
  *
  * 每个工具跑完就 yield 一条 tool_result（以及可选的 prependMessages，如 Skill 正文）。
- * 权限 abort 后停止后续工具。
+ * 权限 abort 后对剩余 tool_use 合成错误 tool_result，保持配对完整。
  */
 
 import type { ToolUseContext } from '../../Tool.js'
 import type { AssistantMessage, ToolUseBlock, UserMessage } from '../../types/message.js'
+import { createToolResultMessage } from '../../utils/messages.js'
 import { runToolUse } from './execution.js'
+
+/**
+ * abort 后跳过未执行工具时的合成 tool_result 文案（英文，稳定可断言）
+ */
+export const SKIPPED_TOOL_RESULT_MESSAGE =
+  'Skipped because a previous tool use was rejected or the turn was aborted.'
 
 /**
  * 工具编排层单次 yield 的更新
@@ -27,7 +34,7 @@ export type ToolOrchestrationUpdate = {
  * @param toolUseBlocks - 本轮 assistant 中的全部 tool_use
  * @param parentMessage - 包含这些 tool_use 的 assistant 消息
  * @param context - 工具执行上下文
- * @yields 每个工具执行完成后的 tool_result user 消息
+ * @yields 每个工具执行完成后的 tool_result user 消息（含 abort 后的合成 skipped）
  */
 export async function* runTools(
   toolUseBlocks: ToolUseBlock[],
@@ -35,10 +42,18 @@ export async function* runTools(
   context: ToolUseContext,
 ): AsyncGenerator<ToolOrchestrationUpdate, void> {
   for (const block of toolUseBlocks) {
-    // 用户拒绝写操作后 abort：停止本轮后续工具，避免继续改文件
+    // abort 后不再 call/hooks，但仍补齐 tool_result，避免孤儿 tool_use
     if (context.abortController?.signal.aborted) {
-      break
+      yield {
+        message: createToolResultMessage(
+          block.id,
+          SKIPPED_TOOL_RESULT_MESSAGE,
+          true,
+        ),
+      }
+      continue
     }
+
     const update = await runToolUse(block, parentMessage, context)
     // Skill 正文等须先于 tool_result，模型才能在「工具返回」前看到注入材料
     if (update.prependMessages) {
