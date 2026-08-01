@@ -1,3 +1,10 @@
+## Issue map
+
+| Issue | Tasks | Blocked by |
+|-------|-------|------------|
+| [#83](https://github.com/jimchou-h/react-agent-mini/issues/83) synthesize skipped tool_result in runTools | 1.1–1.2 | — |
+| [#84](https://github.com/jimchou-h/react-agent-mini/issues/84) query abort keeps pairing | 2.1–2.2 | #83 |
+
 ## 1. Orchestration
 
 - [ ] 1.1 `runTools`：aborted 时对剩余 block yield 合成 `is_error` tool_result（常量文案）+ 单测（多工具中途 abort）
