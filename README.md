@@ -39,7 +39,7 @@ bun install
 
 matcher 为工具名精确匹配或 `*`。命令经 shell 执行，stdin 为 JSON payload（含 `tool_name` / `tool_input` 等）。**命令可执行任意代码，只信任本工作区配置。**
 
-示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post`。本版不做 Stop hook。
+示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post`。本版不做 Stop hook。讲解见 [`docs/blog/hooks.md`](docs/blog/hooks.md)。
 
 ### Write / Edit 权限（简要）
 
@@ -110,10 +110,18 @@ REPL 内可用：
 
 每个 `SKILL.md` 可用 YAML frontmatter 声明 `name` 与 `description`；缺少 `name` 时使用目录名。可用技能摘要会加入 system prompt，模型通过只读 `Skill` 工具按名称加载正文。单技能正文最多 32KB，REPL `/clear` 不重新扫描。
 
-本仓库包含 `.agents/skills/echo-demo/SKILL.md` 示例。真实模型可根据 system 摘要调用：
+**REPL slash：** `/<skill-id> [args...]`（`skill-id` = 目录名）。解析优先级：内置（`/help` `/clear` `/compact` …）→ MCP `/server:prompt` → Skill → 未知提示。无 args 只注入正文并打印确认（不 callModel）；有 args 则注入后以参数文本开一轮。与 `Skill` 工具共用同一调用 ID 与注入格式。
+
+本仓库示例：
+
+- `.agents/skills/echo-demo/SKILL.md`
+- `.agents/skills/skill-creator/SKILL.md`（如何写项目 Skill）
 
 ```text
 Skill({ "skill": "echo-demo" })
+# 或 REPL：
+/echo-demo
+/skill-creator 帮我写一个 foo skill
 ```
 
 ### MCP（stdio 外部工具 + Resources + Prompts）

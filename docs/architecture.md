@@ -130,6 +130,7 @@ src/
 2. 解析 frontmatter 的 `name` / `description`，正文上限 32KB
 3. `buildSystemPrompt()` 把名称摘要追加到 project context
 4. 模型调用只读 `Skill({ skill, args? })`；skill ID 为目录名，正文通过附加 user message 注入下一轮推理，`tool_result` 仅返回短确认
+5. REPL 亦可 `/<skill-id> [args...]`：与工具共用 `formatSkillInjection`；无 args 仅注入确认，有 args 再 `runTurn`。优先级：内置 → MCP → Skill
 
 Skill 正文不会永久追加到 system prompt；仅目录摘要常驻。这样既可发现具名工作流，又避免所有技能正文占满上下文。`/clear` 不重扫目录。
 
@@ -153,7 +154,7 @@ Mock 模式：`productionDeps()` 绑定 `mockEchoCallModel`，可验证 Echo 闭
 | Pipe | `echo "问题" \| bun run dev -p` | stdin 单次 |
 | 真实模型 | `bun run dev -- "读取 README.md"` | 需 `OPENAI_API_KEY` |
 
-Slash（仅 REPL）：`/help`、`/clear`、`/exit`（`/quit`）。
+Slash（仅 REPL）：`/help`、`/clear`、`/compact`、`/exit`（`/quit`）；已发现 Skill 的 `/<skill-id>`；MCP `/server:prompt`。
 
 输出约定：
 
