@@ -5,27 +5,15 @@
  * 入参 `skill` 必须是目录名（调用 ID），不是 frontmatter displayName。
  */
 
-import { dirname } from 'node:path'
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'
-import type { DiscoveredSkill } from '../skills/discover.js'
+import { formatSkillInjection } from '../skills/inject.js'
 import { createUserMessage } from '../utils/messages.js'
 
 const skillInputSchema = z.object({
   skill: z.string().min(1).describe('要加载的技能名称（目录名）'),
   args: z.string().optional().describe('可选参数，会附在技能说明前'),
 })
-
-function formatSkillInjection(skill: DiscoveredSkill, args?: string): string {
-  // 注入正文前附上 skill 目录与可选 args，方便模型按相对路径理解材料
-  const baseDir = dirname(skill.path)
-  const parts = [`Base directory for this skill: ${baseDir}`]
-  if (args?.trim()) {
-    parts.push(`Arguments: ${args.trim()}`)
-  }
-  parts.push('', skill.body)
-  return parts.join('\n')
-}
 
 /** 按名称把已发现的 SKILL.md 正文加载进当前工具回合。 */
 export const SkillTool: Tool<typeof skillInputSchema> = {
