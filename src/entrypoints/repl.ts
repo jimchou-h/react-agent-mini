@@ -1,9 +1,11 @@
 /**
- * REPL：读用户输入 → 本地 slash / MCP slash / 普通对话
+ * REPL：读用户输入 → 本地 slash / MCP slash / Skill slash / 普通对话
  *
  * MCP 相关路径：
  * - `/tour:plan_trip …`：prompts/get → 按返回文本中 `@server:uri` 挂 Resource → 注入开场
  * - 普通消息含 `@server:uri`：按需挂 Resource，再发送用户原文（对齐 CC）
+ *
+ * Skill：`/<skill-id> [args...]`（内置 → MCP → Skill → 未知）
  */
 
 import type { QueryEngine } from '../QueryEngine.js'
@@ -15,6 +17,9 @@ import {
 import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
 import { formatMcpHelpLines, parseMcpSlashCommand } from '../services/mcp/promptSlash.js'
+import type { DiscoveredSkill } from '../skills/discover.js'
+import { formatSkillInjection } from '../skills/inject.js'
+import { parseSkillSlash } from '../skills/slash.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
 
@@ -44,14 +49,24 @@ const BASE_HELP_TEXT = `可用命令:
   /compact      — LLM 摘要压缩当前会话
   /help         — 显示本帮助`
 
-/** 拼本地帮助 + 可选 MCP prompt 列表 */
-export function buildHelpText(mcpCommands: readonly McpSlashCommand[] = []): string {
+/** 拼本地帮助 + 可选 MCP prompt + Skill slash 列表 */
+export function buildHelpText(
+  mcpCommands: readonly McpSlashCommand[] = [],
+  skills: readonly DiscoveredSkill[] = [],
+): string {
+  const sections = [BASE_HELP_TEXT]
   const mcpLines = formatMcpHelpLines(mcpCommands)
-  if (mcpLines.length === 0) {
-    return BASE_HELP_TEXT
+  if (mcpLines.length > 0) {
+    sections.push(`MCP prompts:\n${mcpLines.join('\n')}`)
   }
-  // 有 MCP prompt 时追加一节，方便用户照着抄
-  return `${BASE_HELP_TEXT}\n\nMCP prompts:\n${mcpLines.join('\n')}`
+  if (skills.length > 0) {
+    const skillLines = skills.map(s => {
+      const desc = s.description?.trim()
+      return desc ? `  /${s.name} — ${desc}` : `  /${s.name}`
+    })
+    sections.push(`Skills:\n${skillLines.join('\n')}`)
+  }
+  return sections.join('\n\n')
 }
 
 /**
@@ -81,7 +96,7 @@ export function isSlashLine(line: string): boolean {
   return line.trim().startsWith('/')
 }
 
-/** runReplSession 可注入依赖（engine / 行流 / MCP / 测试钩子） */
+/** runReplSession 可注入依赖（engine / 行流 / MCP / skills / 测试钩子） */
 export type ReplSessionDeps = {
   engine: QueryEngine
   lines: AsyncIterable<string>
@@ -92,6 +107,8 @@ export type ReplSessionDeps = {
   mcpCommands?: readonly McpSlashCommand[]
   /** 已连接 MCP clients；slash 时用于挂载同 server 的 Resources */
   mcpClients?: readonly McpConnectedClient[]
+  /** 启动时发现的 skills 快照（/clear 不重扫） */
+  skills?: readonly DiscoveredSkill[]
   /** `/compact` 侧路摘要；缺省时打印需注入的错误 */
   summarizeForCompact?: SummarizeFn
 }
@@ -104,6 +121,7 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
   const print = deps.print ?? ((text: string) => console.log(text))
   const mcpCommands = deps.mcpCommands ?? []
   const mcpClients = deps.mcpClients ?? []
+  const skills = deps.skills ?? []
 
   for await (const line of deps.lines) {
     if (isSkippableReplLine(line)) {
@@ -124,7 +142,7 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       continue
     }
     if (slash?.type === 'help') {
-      print(buildHelpText(mcpCommands))
+      print(buildHelpText(mcpCommands, skills))
       deps.onAfterTurn?.()
       continue
     }
@@ -173,6 +191,27 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         print(`MCP prompt 失败: ${msg}`)
+      }
+      deps.onAfterTurn?.()
+      continue
+    }
+
+    // Skill slash：注入正文；无 args 仅确认，有 args 则 runTurn(args)
+    const skillSlash = parseSkillSlash(trimmed, skills)
+    if (skillSlash) {
+      const injection = createUserMessage(
+        formatSkillInjection(skillSlash.skill, skillSlash.args),
+      )
+      if (skillSlash.args) {
+        await consume(
+          deps.engine.runTurn(skillSlash.args, {
+            injectBefore: [injection],
+          }),
+        )
+        printContextUsage(deps.engine, print)
+      } else {
+        deps.engine.appendMessages(injection)
+        print(`已加载 skill: ${skillSlash.skill.name}`)
       }
       deps.onAfterTurn?.()
       continue
@@ -252,6 +291,7 @@ export async function runRepl(
   options?: {
     mcpCommands?: readonly McpSlashCommand[]
     mcpClients?: readonly McpConnectedClient[]
+    skills?: readonly DiscoveredSkill[]
     summarizeForCompact?: SummarizeFn
   },
 ): Promise<void> {
@@ -263,13 +303,18 @@ export async function runRepl(
     options?.summarizeForCompact ??
     createSummarizeFromCallModel(productionDeps().callModel)
 
+  const session = {
+    mcpCommands: options?.mcpCommands,
+    mcpClients: options?.mcpClients,
+    skills: options?.skills,
+    summarizeForCompact,
+  }
+
   if (existingRl) {
     await runReplSession({
       engine,
       lines: linesFromReadlineQuestions(existingRl),
-      mcpCommands: options?.mcpCommands,
-      mcpClients: options?.mcpClients,
-      summarizeForCompact,
+      ...session,
     })
     return
   }
@@ -282,9 +327,7 @@ export async function runRepl(
     await runReplSession({
       engine,
       lines: linesFromReadlineQuestions(rl),
-      mcpCommands: options?.mcpCommands,
-      mcpClients: options?.mcpClients,
-      summarizeForCompact,
+      ...session,
     })
   } finally {
     rl.close()

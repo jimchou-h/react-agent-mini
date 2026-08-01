@@ -150,6 +150,7 @@ async function main(): Promise<void> {
       await runRepl(engine, rl, {
         mcpCommands: mcp.commands,
         mcpClients: mcp.clients,
+        skills,
       })
     } finally {
       rl.close()

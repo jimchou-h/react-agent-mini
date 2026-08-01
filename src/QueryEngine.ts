@@ -54,9 +54,16 @@ export class QueryEngine {
     this.#systemPrompt = params.systemPrompt
   }
 
-  /** 当前会话消息历史（只读快照视图，勿外部 mutate） */
+  /** 当前会话消息历史（只读快照视图；写入请用 appendMessages / runTurn） */
   get messages(): Message[] {
     return this.#messages
+  }
+
+  /**
+   * 追加消息且不调用模型（如 Skill slash 无 args 仅加载）。
+   */
+  appendMessages(...messages: Message[]): void {
+    this.#messages.push(...messages)
   }
 
   /** 最近一次模型调用的 token usage（若 Provider 未上报则为 null） */
