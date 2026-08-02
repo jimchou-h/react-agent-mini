@@ -67,3 +67,45 @@ export async function loadAgentMemorySnapshot(
     return { path, content: undefined, mtimeMs: null }
   }
 }
+
+/**
+ * 若 mtime 未变则复用 previous；否则重读。
+ * previous 为 undefined 时等价于首次 load。
+ */
+export async function refreshMemorySnapshot(
+  cwd: string,
+  previous: MemorySnapshot | undefined,
+): Promise<{ snapshot: MemorySnapshot; changed: boolean }> {
+  if (!previous) {
+    const snapshot = await loadAgentMemorySnapshot(cwd)
+    return { snapshot, changed: true }
+  }
+  const path = memoryFilePath(cwd)
+  try {
+    const meta = await stat(path)
+    if (
+      previous.mtimeMs !== null &&
+      meta.mtimeMs === previous.mtimeMs
+    ) {
+      return { snapshot: previous, changed: false }
+    }
+    const raw = await readFile(path, 'utf-8')
+    return {
+      snapshot: {
+        path,
+        content: truncateMemory(raw),
+        mtimeMs: meta.mtimeMs,
+      },
+      changed: true,
+    }
+  } catch {
+    const missing: MemorySnapshot = {
+      path,
+      content: undefined,
+      mtimeMs: null,
+    }
+    const changed =
+      previous.content !== undefined || previous.mtimeMs !== null
+    return { snapshot: missing, changed }
+  }
+}

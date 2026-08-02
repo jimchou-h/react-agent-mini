@@ -10,13 +10,18 @@
  */
 
 import { discoverSkills, type DiscoveredSkill } from './discover.js'
-import { loadAgentMemory } from '../services/memory/load.js'
+import {
+  loadAgentMemory,
+  loadAgentMemorySnapshot,
+  type MemorySnapshot,
+} from '../services/memory/load.js'
 import { loadProjectContext } from '../utils/projectContext.js'
 
 type SessionContextDeps = {
   loadProjectContext(cwd: string): Promise<string | undefined>
   discoverSkills(cwd: string): Promise<DiscoveredSkill[]>
   loadAgentMemory?(cwd: string): Promise<string | undefined>
+  loadAgentMemorySnapshot?(cwd: string): Promise<MemorySnapshot>
 }
 
 /**
@@ -63,21 +68,42 @@ export async function loadSessionContext(
     loadProjectContext,
     discoverSkills,
     loadAgentMemory,
+    loadAgentMemorySnapshot,
   },
 ): Promise<{
   systemPrompt: string | undefined
   skills: readonly DiscoveredSkill[]
   memory: string | undefined
+  projectContext: string | undefined
+  memorySnapshot: MemorySnapshot
 }> {
-  const loadMemory = deps.loadAgentMemory ?? loadAgentMemory
-  const [projectContext, skills, memory] = await Promise.all([
+  const loadSnap =
+    deps.loadAgentMemorySnapshot ??
+    (async (dir: string) => {
+      const content = deps.loadAgentMemory
+        ? await deps.loadAgentMemory(dir)
+        : await loadAgentMemory(dir)
+      return {
+        path: `${dir}/.agents/memory/MEMORY.md`,
+        content,
+        mtimeMs: content === undefined ? null : 0,
+      }
+    })
+
+  const [projectContext, skills, memorySnapshot] = await Promise.all([
     deps.loadProjectContext(cwd),
     deps.discoverSkills(cwd),
-    loadMemory(cwd),
+    loadSnap(cwd),
   ])
   return {
-    systemPrompt: buildSystemPrompt(projectContext, skills, memory),
+    systemPrompt: buildSystemPrompt(
+      projectContext,
+      skills,
+      memorySnapshot.content,
+    ),
     skills,
-    memory,
+    memory: memorySnapshot.content,
+    projectContext,
+    memorySnapshot,
   }
 }

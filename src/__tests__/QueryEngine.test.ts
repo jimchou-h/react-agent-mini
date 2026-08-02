@@ -143,6 +143,63 @@ describe('QueryEngine', () => {
     expect(engine.messages.length).toBeGreaterThan(0)
   })
 
+  test('runTurn refreshes systemPrompt when Memory mtime changes', async () => {
+    const { mkdir, mkdtemp, rm, utimes, writeFile } = await import(
+      'node:fs/promises'
+    )
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { loadAgentMemorySnapshot } = await import(
+      '../services/memory/load.js'
+    )
+
+    const rootDir = await mkdtemp(join(tmpdir(), 'qe-memory-'))
+    try {
+      const dir = join(rootDir, '.agents', 'memory')
+      await mkdir(dir, { recursive: true })
+      const file = join(dir, 'MEMORY.md')
+      await writeFile(file, 'mem-v1', 'utf-8')
+      const snapshot = await loadAgentMemorySnapshot(rootDir)
+
+      const seen: string[] = []
+      async function* captureCallModel(
+        params: CallModelParams,
+      ): AsyncGenerator<StreamEvent | AssistantMessage> {
+        if (params.systemPrompt) seen.push(params.systemPrompt)
+        yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+      }
+
+      const tools = getTools()
+      const engine = new QueryEngine({
+        tools,
+        toolUseContext: createMinimalToolContext(tools),
+        systemPrompt: 'AGENTS\n\nmem-v1',
+        memoryRefresh: {
+          cwd: rootDir,
+          projectContext: 'AGENTS',
+          skills: [],
+          snapshot,
+        },
+        deps: {
+          callModel: captureCallModel,
+          uuid: () => 'qe-mem',
+        },
+      })
+
+      await drainTurn(engine.runTurn('one'))
+      await writeFile(file, 'mem-v2', 'utf-8')
+      const later = new Date(Date.now() + 2000)
+      await utimes(file, later, later)
+      await drainTurn(engine.runTurn('two'))
+
+      expect(seen[0]).toContain('mem-v1')
+      expect(seen[1]).toContain('mem-v2')
+      expect(seen[1]).toContain('AGENTS')
+    } finally {
+      await rm(rootDir, { recursive: true, force: true })
+    }
+  })
+
   test('runTurn yields text_delta and assistant like query', async () => {
     const tools = getTools()
     const engine = new QueryEngine({

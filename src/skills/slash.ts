@@ -14,6 +14,7 @@ export const BUILTIN_SLASH_NAMES = new Set([
   'clear',
   'help',
   'compact',
+  'memory',
 ])
 
 export type SkillSlashMatch = {

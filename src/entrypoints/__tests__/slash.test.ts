@@ -25,6 +25,10 @@ describe('parseSlashCommand', () => {
     expect(parseSlashCommand('/compact')).toEqual({ type: 'compact' })
   })
 
+  test('parses memory', () => {
+    expect(parseSlashCommand('/memory')).toEqual({ type: 'memory' })
+  })
+
   test('returns null for normal prompts', () => {
     expect(parseSlashCommand('你好')).toBeNull()
     expect(parseSlashCommand('/unknown')).toBeNull()
@@ -440,6 +444,7 @@ describe('buildHelpText', () => {
     ])
     expect(text).toContain('tour:plan_trip (MCP)')
     expect(text).toContain('/compact')
+    expect(text).toContain('/memory')
   })
 
   test('includes Skill slash section', () => {
@@ -453,6 +458,72 @@ describe('buildHelpText', () => {
     ])
     expect(text).toContain('Skills:')
     expect(text).toContain('/echo-demo — Echo workflow')
+  })
+})
+
+describe('runReplSession /memory', () => {
+  test('prints path and length without callModel', async () => {
+    const { mkdir, mkdtemp, rm, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { loadAgentMemorySnapshot } = await import(
+      '../../services/memory/load.js'
+    )
+
+    const rootDir = await mkdtemp(join(tmpdir(), 'repl-memory-'))
+    try {
+      const dir = join(rootDir, '.agents', 'memory')
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, 'MEMORY.md'), 'prefer tabs', 'utf-8')
+      const snapshot = await loadAgentMemorySnapshot(rootDir)
+
+      const tools = getTools()
+      const engine = new QueryEngine({
+        tools,
+        toolUseContext: createMinimalToolContext(tools),
+        memoryRefresh: {
+          cwd: rootDir,
+          projectContext: undefined,
+          skills: [],
+          snapshot,
+        },
+        deps: {
+          callModel: async function* mock() {
+            yield createAssistantMessage([
+              { type: 'text', text: 'should-not-run' },
+            ])
+          },
+          uuid: () => 'memory-slash',
+        },
+      })
+
+      const printed: string[] = []
+      let turnCount = 0
+
+      async function* lines() {
+        yield '/memory'
+        yield '/exit'
+      }
+
+      await runReplSession({
+        engine,
+        lines: lines(),
+        print: t => printed.push(t),
+        consume: async gen => {
+          turnCount++
+          while (true) {
+            const { done, value } = await gen.next()
+            if (done) return value
+          }
+        },
+      })
+
+      expect(turnCount).toBe(0)
+      expect(printed.some(p => p.includes('MEMORY.md'))).toBe(true)
+      expect(printed.some(p => p.includes('11 chars'))).toBe(true)
+    } finally {
+      await rm(rootDir, { recursive: true, force: true })
+    }
   })
 })
 

@@ -3,6 +3,7 @@
  *
  * 管多轮用户输入之间的 messages 累积；每轮 `runTurn` 调一次 `query()`。
  * REPL 长期持有一个实例；MCP slash 可通过 injectBefore 注入材料/模板。
+ * 可选 memoryRefresh：runTurn 前按 mtime 刷新 Memory 并重建 systemPrompt。
  */
 
 import { query } from './query.js'
@@ -19,7 +20,21 @@ import {
   type ContextUsageEstimate,
   type TokenUsage,
 } from './services/compact/contextUsage.js'
+import {
+  refreshMemorySnapshot,
+  type MemorySnapshot,
+} from './services/memory/load.js'
+import type { DiscoveredSkill } from './skills/discover.js'
+import { buildSystemPrompt } from './skills/systemPrompt.js'
 import { createUserMessage } from './utils/messages.js'
+
+/** 轮次前按 mtime 刷新 Memory 并重建 systemPrompt */
+export type MemoryRefreshBinding = {
+  cwd: string
+  projectContext: string | undefined
+  skills: readonly DiscoveredSkill[]
+  snapshot: MemorySnapshot
+}
 
 export type QueryEngineParams = {
   /** 本会话可用工具（含 MCP） */
@@ -29,6 +44,8 @@ export type QueryEngineParams = {
   deps?: Partial<QueryDeps>
   maxTurns?: number
   systemPrompt?: string
+  /** 启用后每次 runTurn 前按 mtime 刷新 Memory */
+  memoryRefresh?: MemoryRefreshBinding
 }
 
 /**
@@ -42,7 +59,8 @@ export class QueryEngine {
   readonly #toolUseContext: ToolUseContext
   readonly #deps: Partial<QueryDeps> | undefined
   readonly #maxTurns: number | undefined
-  readonly #systemPrompt: string | undefined
+  #systemPrompt: string | undefined
+  #memoryRefresh: MemoryRefreshBinding | undefined
   #messages: Message[] = []
   #lastUsage: TokenUsage | null = null
 
@@ -52,11 +70,22 @@ export class QueryEngine {
     this.#deps = params.deps
     this.#maxTurns = params.maxTurns
     this.#systemPrompt = params.systemPrompt
+    this.#memoryRefresh = params.memoryRefresh
   }
 
   /** 当前会话消息历史（只读快照视图；写入请用 appendMessages / runTurn） */
   get messages(): Message[] {
     return this.#messages
+  }
+
+  /** 当前出站 system prompt（含可能已刷新的 Memory） */
+  get systemPrompt(): string | undefined {
+    return this.#systemPrompt
+  }
+
+  /** Memory 路径与最近快照（未启用 memoryRefresh 则为 undefined） */
+  get memorySnapshot(): MemorySnapshot | undefined {
+    return this.#memoryRefresh?.snapshot
   }
 
   /**
@@ -76,6 +105,23 @@ export class QueryEngine {
     this.#lastUsage = usage
   }
 
+  /** 按 mtime 刷新 Memory；未绑定则 no-op */
+  async refreshMemoryIfNeeded(): Promise<boolean> {
+    if (!this.#memoryRefresh) return false
+    const { snapshot, changed } = await refreshMemorySnapshot(
+      this.#memoryRefresh.cwd,
+      this.#memoryRefresh.snapshot,
+    )
+    if (!changed) return false
+    this.#memoryRefresh = { ...this.#memoryRefresh, snapshot }
+    this.#systemPrompt = buildSystemPrompt(
+      this.#memoryRefresh.projectContext,
+      this.#memoryRefresh.skills,
+      snapshot.content,
+    )
+    return true
+  }
+
   /**
    * 执行一轮：把本轮消息放进历史，再跑 `query()`，流式产出边走边写入历史。
    *
@@ -87,6 +133,8 @@ export class QueryEngine {
     userText: string,
     options?: { injectBefore?: UserMessage[] },
   ): AsyncGenerator<QueryYield, Terminal> {
+    await this.refreshMemoryIfNeeded()
+
     // 1) Host 注入（meta）；2) 用户原文（可省略）
     if (options?.injectBefore?.length) {
       this.#messages.push(...options.injectBefore)

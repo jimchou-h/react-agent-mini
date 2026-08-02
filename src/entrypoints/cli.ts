@@ -106,10 +106,8 @@ async function main(): Promise<void> {
   let closeMcp: (() => Promise<void>) | undefined
 
   try {
-    const [{ systemPrompt, skills }, mcp] = await Promise.all([
-      loadSessionContext(),
-      loadMcpTools(),
-    ])
+    const [{ systemPrompt, skills, projectContext, memorySnapshot }, mcp] =
+      await Promise.all([loadSessionContext(), loadMcpTools()])
     closeMcp = mcp.close
     const tools = sessionTools(mcp)
 
@@ -138,6 +136,7 @@ async function main(): Promise<void> {
     const { stdin: input, stdout: output } = await import('node:process')
     const rl = readline.createInterface({ input, output })
     const ask = async (prompt: string): Promise<string> => rl.question(prompt)
+    const cwd = process.cwd()
     const engine = new QueryEngine({
       tools,
       toolUseContext: createSessionToolContext(tools, skills, {
@@ -145,6 +144,12 @@ async function main(): Promise<void> {
         canUseTool: createReplCanUseTool(ask),
       }),
       systemPrompt,
+      memoryRefresh: {
+        cwd,
+        projectContext,
+        skills,
+        snapshot: memorySnapshot,
+      },
     })
     try {
       await runRepl(engine, rl, {

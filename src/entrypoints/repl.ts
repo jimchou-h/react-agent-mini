@@ -36,17 +36,19 @@ export function isSkippableReplLine(line: string): boolean {
   return line.trim().length === 0
 }
 
-/** 本地 slash：exit / clear / help / compact（不含 MCP `/server:prompt`） */
+/** 本地 slash：exit / clear / help / compact / memory（不含 MCP `/server:prompt`） */
 export type SlashCommand =
   | { type: 'exit' }
   | { type: 'clear' }
   | { type: 'help' }
   | { type: 'compact' }
+  | { type: 'memory' }
 
 const BASE_HELP_TEXT = `可用命令:
   /exit, /quit  — 退出 REPL
   /clear        — 清空会话历史
   /compact      — LLM 摘要压缩当前会话
+  /memory       — 显示 Agent Memory 路径与长度
   /help         — 显示本帮助`
 
 /** 拼本地帮助 + 可选 MCP prompt + Skill slash 列表 */
@@ -69,6 +71,21 @@ export function buildHelpText(
   return sections.join('\n\n')
 }
 
+/** `/memory` 状态文案（路径 + 字符数；缺失时说明） */
+export function formatMemoryStatus(
+  snapshot:
+    | { path: string; content: string | undefined }
+    | undefined,
+): string {
+  if (!snapshot) {
+    return 'Memory 未启用（会话未绑定 memoryRefresh）'
+  }
+  if (snapshot.content === undefined) {
+    return `Memory: ${snapshot.path}（文件不存在）`
+  }
+  return `Memory: ${snapshot.path}（${snapshot.content.length} chars）`
+}
+
 /**
  * 解析本地 slash 命令；普通输入或未知 `/xxx` 返回 null（未知不送 slash，也不当模型输入——见 session）
  *
@@ -87,6 +104,9 @@ export function parseSlashCommand(line: string): SlashCommand | null {
   }
   if (trimmed === '/compact') {
     return { type: 'compact' }
+  }
+  if (trimmed === '/memory') {
+    return { type: 'memory' }
   }
   return null
 }
@@ -163,6 +183,12 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
         const msg = err instanceof Error ? err.message : String(err)
         print(`压缩失败: ${msg}`)
       }
+      deps.onAfterTurn?.()
+      continue
+    }
+    if (slash?.type === 'memory') {
+      await deps.engine.refreshMemoryIfNeeded()
+      print(formatMemoryStatus(deps.engine.memorySnapshot))
       deps.onAfterTurn?.()
       continue
     }
