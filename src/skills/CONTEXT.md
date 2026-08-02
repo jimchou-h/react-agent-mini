@@ -37,6 +37,9 @@
 | `src/skills/discover.ts` | 扫描、frontmatter 解析、截断 |
 | `src/skills/inject.ts` | `formatSkillInjection`（工具与 slash 共用） |
 | `src/skills/slash.ts` | `parseSkillSlash` |
-| `src/skills/systemPrompt.ts` | `buildSystemPrompt()`、`loadSessionContext()` |
+| `src/skills/systemPrompt.ts` | `buildSystemPrompt()`、`loadSessionContext()`（含 Memory） |
 | `src/tools/SkillTool.ts` | 按名称读取会话 skills 快照 |
 | `src/entrypoints/repl.ts` | Skill slash 接线与 `/help` 列表 |
+| `src/services/memory/` | Memory 文件加载与刷新（见该目录 CONTEXT） |
+
+注入顺序：项目说明 → Memory → Skills 目录。

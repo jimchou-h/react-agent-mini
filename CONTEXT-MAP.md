@@ -17,6 +17,7 @@
 | `src/permissions/` | `canUseTool` 策略（REPL y/n、headless `ALLOW_WRITE`） | [`src/permissions/CONTEXT.md`](src/permissions/CONTEXT.md) |
 | `src/services/mcp/` | stdio MCP 配置、连接与工具适配 | [`src/services/mcp/CONTEXT.md`](src/services/mcp/CONTEXT.md) |
 | `src/services/hooks/` | Pre/PostToolUse 生命周期 hooks | [`src/services/hooks/CONTEXT.md`](src/services/hooks/CONTEXT.md) |
+| `src/services/memory/` | Agent Memory 加载、预算与 mtime 刷新 | [`src/services/memory/CONTEXT.md`](src/services/memory/CONTEXT.md) |
 | `src/services/compact/` | 出站消息裁剪（Context Budget） | [`src/services/compact/CONTEXT.md`](src/services/compact/CONTEXT.md) |
 | `src/services/api/` | DeepSeek Provider、`callModel`、适配层 | [`src/services/api/CONTEXT.md`](src/services/api/CONTEXT.md) |
 | `src/utils/projectContext.ts` | AGENTS.md / CLAUDE.md 发现与注入 | 见 query CONTEXT「项目上下文」 |

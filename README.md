@@ -84,6 +84,7 @@ REPL 内可用：
 | `/help` | 显示帮助 |
 | `/clear` | 清空会话历史 |
 | `/compact` | LLM 摘要压缩当前会话（打印压缩前后 `ctx ~NN%`） |
+| `/memory` | 显示 Agent Memory 路径与长度（不 callModel） |
 | `/exit` 或 `/quit` | 退出 |
 
 > 若曾设置 `$env:QUERY_MOCK="1"`，请先 `Remove-Item Env:QUERY_MOCK`，否则会一直走仅 Echo 的 mock。
@@ -100,6 +101,21 @@ REPL 内可用：
 | 大小 | 合并后最多 64KB，超出截断 |
 
 本仓库根目录的 `AGENTS.md` 会在真实模型模式下自动生效。Mock 模式仍会加载并透传 `systemPrompt`，但假模型不解读内容。
+
+### Agent Memory（跨会话偏好）
+
+可选文件 **`.agents/memory/MEMORY.md`**：启动时与项目说明一并注入 **system prompt**（顺序：AGENTS/CLAUDE → Memory → Skills 目录摘要）。缺失则跳过。
+
+| 规则 | 行为 |
+|------|------|
+| 路径 | 仅 `.agents/memory/MEMORY.md`（相对 cwd） |
+| 大小 | 最多 32KB，超出截断 |
+| 刷新 | REPL 每轮 `runTurn` 前按文件 mtime 刷新；未变则用缓存 |
+| 写入 | 用既有 `Write` / `Edit`（走 REPL 确认 / `ALLOW_WRITE`），无旁路 |
+| `/memory` | 只读展示路径与字符数 |
+| 与 compact | Memory 在 system 通道，**不替代** autocompact / `/compact` |
+
+术语见 [`src/services/memory/CONTEXT.md`](src/services/memory/CONTEXT.md)。
 
 ### Skills（按需工作流）
 
