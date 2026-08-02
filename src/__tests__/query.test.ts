@@ -612,4 +612,128 @@ describe('query', () => {
       else process.env.TRACE = prev
     }
   })
+
+  test('exit 2 Stop injects feedback and calls model again', async () => {
+    let modelCalls = 0
+    const stopPayloads: Array<{ stop_hook_active?: boolean }> = []
+
+    async function* mockTwoTexts(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      modelCalls++
+      const hasFeedback = params.messages.some(
+        m =>
+          m.type === 'user' &&
+          m.content.some(
+            b =>
+              b.type === 'text' &&
+              b.text.includes('Stop hook feedback:'),
+          ),
+      )
+      if (!hasFeedback) {
+        yield createAssistantMessage([{ type: 'text', text: 'first' }])
+        return
+      }
+      yield createAssistantMessage([{ type: 'text', text: 'after-stop' }])
+    }
+
+    let stopRound = 0
+    const tools = getTools()
+    const { collected, terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          hooksConfig: { Stop: [{ command: 'block' }] },
+          hookExec: async (_cmd, payload) => {
+            stopPayloads.push(payload as { stop_hook_active?: boolean })
+            stopRound++
+            if (stopRound === 1) {
+              return { exitCode: 2, stdout: '', stderr: 'need more' }
+            }
+            return { exitCode: 0, stdout: '', stderr: '' }
+          },
+        },
+        deps: { callModel: mockTwoTexts, uuid: () => 'stop-block' },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(modelCalls).toBe(2)
+    expect(stopPayloads[0]?.stop_hook_active).toBe(false)
+    expect(stopPayloads[1]?.stop_hook_active).toBe(true)
+
+    const feedback = collected.find(
+      m =>
+        m.type === 'user' &&
+        m.content.some(
+          b =>
+            b.type === 'text' &&
+            b.text.includes('Stop hook feedback:') &&
+            b.text.includes('need more'),
+        ),
+    )
+    expect(feedback).toBeDefined()
+  })
+
+  test('continue false ends without another model turn even on exit 2', async () => {
+    let modelCalls = 0
+    async function* mockTextOnly(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      modelCalls++
+      yield createAssistantMessage([{ type: 'text', text: 'once' }])
+    }
+
+    const tools = getTools()
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          hooksConfig: { Stop: [{ command: 'stop' }] },
+          hookExec: async () => ({
+            exitCode: 2,
+            stdout: JSON.stringify({ continue: false }),
+            stderr: 'ignored',
+          }),
+        },
+        deps: { callModel: mockTextOnly, uuid: () => 'stop-prevent' },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(modelCalls).toBe(1)
+  })
+
+  test('repeated Stop blocking hits maxTurns', async () => {
+    async function* mockAlwaysText(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      yield createAssistantMessage([{ type: 'text', text: 'again' }])
+    }
+
+    const tools = getTools()
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        maxTurns: 2,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          hooksConfig: { Stop: [{ command: 'loop' }] },
+          hookExec: async () => ({
+            exitCode: 2,
+            stdout: '',
+            stderr: 'again',
+          }),
+        },
+        deps: { callModel: mockAlwaysText, uuid: () => 'stop-max' },
+      }),
+    )
+
+    expect(terminal?.reason).toBe('max_turns')
+  })
 })

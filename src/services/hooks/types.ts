@@ -65,7 +65,7 @@ export type HookExecFn = (
   options: { timeoutMs: number },
 ) => Promise<HookCommandResult>
 
-/** runStop 单次观察结果（#88 不据此续跑） */
+/** runStop 单次原始结果 */
 export type StopHookOutcome = {
   exitCode: number
   stdout: string
@@ -76,4 +76,10 @@ export type StopRunResult = {
   /** 实际调用的 Stop command 次数 */
   count: number
   outcomes: StopHookOutcome[]
+  /** stdout JSON `continue: false` — 优先于 blocking，直接结束 */
+  preventContinuation: boolean
+  stopReason?: string
+  /** exit 2 / decision:block 的 feedback（stderr/`reason` 优先） */
+  blockingFeedback?: string
 }
+

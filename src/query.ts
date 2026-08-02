@@ -24,6 +24,7 @@ import { runTools } from './services/tools/orchestration.js'
 import {
   appendTurnMessages,
   createAssistantMessage,
+  createUserMessage,
   extractToolUseBlocks,
 } from './utils/messages.js'
 import { trace } from './utils/trace.js'
@@ -32,6 +33,10 @@ function resolveHooksConfig(params: QueryParams): HooksConfig | null {
   const fromCtx = params.toolUseContext.hooksConfig
   if (fromCtx !== undefined) return fromCtx
   return loadHooksConfig()
+}
+
+function formatStopFeedback(feedback: string): string {
+  return `Stop hook feedback:\n${feedback}`
 }
 
 /**
@@ -71,7 +76,7 @@ export async function* query(
  *
  * 每轮迭代步骤：
  * 1. 出站 compact 管道 → callModel（会话内存不变）
- * 2. 若响应无 tool_use → return completed
+ * 2. 若响应无 tool_use → Stop；prevent 结束 / blocking 再进一轮 / 否则 completed
  * 3. runTools 串行执行 → 得到 tool_result
  * 4. messages 追加 assistant + tool_results，turnCount++，continue
  */
@@ -82,6 +87,8 @@ async function* queryLoop(
   maxTurns: number,
 ): AsyncGenerator<QueryYield, Terminal> {
   let state = initialState
+  /** 因 Stop blocking 再进轮时为 true，传给后续 Stop */
+  let stopHookActive = false
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -153,19 +160,62 @@ async function* queryLoop(
       }
     }
 
-    // —— 阶段 2：无工具则结束（顶层 Stop：#88 observe-only）——
+    // —— 阶段 2：无工具则 Stop / 结束 ——
     if (!needsFollowUp) {
       const depth = params.depth ?? 0
       if (depth === 0) {
         const hooksConfig = resolveHooksConfig(params)
-        await runStop(hooksConfig, {
+        const stopResult = await runStop(hooksConfig, {
           exec: params.toolUseContext.hookExec,
-          stopHookActive: false,
+          stopHookActive,
         })
+
+        if (stopResult.preventContinuation) {
+          trace('query.turn_end', {
+            reason: 'completed',
+            turn: turnCount,
+            stop: 'prevented',
+          })
+          return { reason: 'completed' }
+        }
+
+        if (stopResult.blockingFeedback) {
+          const nextTurnCount = turnCount + 1
+          if (nextTurnCount > maxTurns) {
+            trace('query.turn_end', {
+              reason: 'max_turns',
+              turn: nextTurnCount,
+              stop: 'blocking',
+            })
+            return { reason: 'max_turns', turnCount: nextTurnCount }
+          }
+
+          const feedbackMsg = createUserMessage(
+            formatStopFeedback(stopResult.blockingFeedback),
+          )
+          yield feedbackMsg
+
+          const nextMessages = [
+            ...sessionMessages,
+            ...assistantMessages,
+            feedbackMsg,
+          ]
+          params.messages.length = 0
+          params.messages.push(...nextMessages)
+          state = {
+            messages: params.messages,
+            turnCount: nextTurnCount,
+          }
+          stopHookActive = true
+          continue
+        }
       }
+
       trace('query.turn_end', { reason: 'completed', turn: turnCount })
       return { reason: 'completed' }
     }
+
+    stopHookActive = false
 
     // —— 阶段 3：串行执行工具 ——
     const parentMessage =

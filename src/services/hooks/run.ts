@@ -236,15 +236,58 @@ export async function runPostToolUse(
 }
 
 /**
+ * 从 Stop stdout 解析 continue / decision（末行 JSON，对齐 PreToolUse）。
+ */
+function parseStopStdout(stdout: string): {
+  preventContinuation?: boolean
+  stopReason?: string
+  blockReason?: string
+} {
+  const lines = stdout
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const obj = JSON.parse(lines[i]!) as Record<string, unknown>
+      const out: {
+        preventContinuation?: boolean
+        stopReason?: string
+        blockReason?: string
+      } = {}
+      if (obj.continue === false) {
+        out.preventContinuation = true
+        if (typeof obj.stopReason === 'string') out.stopReason = obj.stopReason
+      }
+      if (obj.decision === 'block') {
+        out.blockReason =
+          typeof obj.reason === 'string' ? obj.reason : 'Blocked by Stop hook'
+      }
+      if (
+        out.preventContinuation ||
+        out.blockReason !== undefined
+      ) {
+        return out
+      }
+    } catch {
+      // 非 JSON 行忽略
+    }
+  }
+  return {}
+}
+
+/**
  * 运行 Stop hooks（顶层 completed 时由 query 调用）。
- * #88：仅观察 — 非 0 不抛；不在此强制再进模型轮（exit 2 续跑见 #89）。
+ * 聚合：任一 `continue: false` → preventContinuation；否则收集 blocking feedback。
  */
 export async function runStop(
   config: HooksConfig | null | undefined,
   options?: RunHooksOptions & { stopHookActive?: boolean },
 ): Promise<StopRunResult> {
   const entries = config?.Stop ?? []
-  if (entries.length === 0) return { count: 0, outcomes: [] }
+  if (entries.length === 0) {
+    return { count: 0, outcomes: [], preventContinuation: false }
+  }
 
   const exec = options?.exec ?? defaultHookExec
   const payload: StopHookPayload = {
@@ -253,6 +296,10 @@ export async function runStop(
   }
 
   const outcomes: StopRunResult['outcomes'] = []
+  let preventContinuation = false
+  let stopReason: string | undefined
+  const blockingParts: string[] = []
+
   for (const entry of entries) {
     const timeoutMs = entry.timeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS
     try {
@@ -266,7 +313,26 @@ export async function runStop(
         stdout: result.stdout,
         stderr: result.stderr,
       })
-      if (result.exitCode !== 0 && result.exitCode !== 2) {
+
+      const parsed = parseStopStdout(result.stdout)
+      if (parsed.preventContinuation) {
+        preventContinuation = true
+        if (parsed.stopReason) stopReason = parsed.stopReason
+        continue
+      }
+      if (parsed.blockReason) {
+        blockingParts.push(parsed.blockReason)
+        continue
+      }
+      if (result.exitCode === 2) {
+        blockingParts.push(
+          result.stderr.trim() ||
+            result.stdout.trim() ||
+            'Stop hook blocked (exit 2)',
+        )
+        continue
+      }
+      if (result.exitCode !== 0) {
         console.error(
           `[hooks] Stop failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`,
         )
@@ -279,5 +345,13 @@ export async function runStop(
     }
   }
 
-  return { count: outcomes.length, outcomes }
+  return {
+    count: outcomes.length,
+    outcomes,
+    preventContinuation,
+    ...(stopReason ? { stopReason } : {}),
+    ...(!preventContinuation && blockingParts.length > 0
+      ? { blockingFeedback: blockingParts.join('\n') }
+      : {}),
+  }
 }

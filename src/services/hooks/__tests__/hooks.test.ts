@@ -234,6 +234,8 @@ describe('runStop', () => {
       { exec },
     )
     expect(result.count).toBe(2)
+    expect(result.preventContinuation).toBe(false)
+    expect(result.blockingFeedback).toBeUndefined()
     expect(payloads).toEqual([
       { hook_event_name: 'Stop', stop_hook_active: false },
       { hook_event_name: 'Stop', stop_hook_active: false },
@@ -252,6 +254,8 @@ describe('runStop', () => {
     )
     expect(result.count).toBe(1)
     expect(result.outcomes[0]!.exitCode).toBe(1)
+    expect(result.preventContinuation).toBe(false)
+    expect(result.blockingFeedback).toBeUndefined()
   })
 
   test('empty or missing Stop is no-op', async () => {
@@ -260,8 +264,74 @@ describe('runStop', () => {
       called = true
       return { exitCode: 0, stdout: '', stderr: '' }
     }
-    expect(await runStop(null, { exec })).toEqual({ count: 0, outcomes: [] })
-    expect(await runStop({}, { exec })).toEqual({ count: 0, outcomes: [] })
+    expect(await runStop(null, { exec })).toEqual({
+      count: 0,
+      outcomes: [],
+      preventContinuation: false,
+    })
+    expect(await runStop({}, { exec })).toEqual({
+      count: 0,
+      outcomes: [],
+      preventContinuation: false,
+    })
     expect(called).toBe(false)
+  })
+
+  test('exit 2 yields blockingFeedback from stderr', async () => {
+    const exec: HookExecFn = async () => ({
+      exitCode: 2,
+      stdout: '',
+      stderr: 'fix the tests',
+    })
+    const result = await runStop(
+      { Stop: [{ command: 'x' }] },
+      { exec },
+    )
+    expect(result.preventContinuation).toBe(false)
+    expect(result.blockingFeedback).toBe('fix the tests')
+  })
+
+  test('decision block yields blockingFeedback', async () => {
+    const exec: HookExecFn = async () => ({
+      exitCode: 0,
+      stdout: JSON.stringify({ decision: 'block', reason: 'incomplete' }),
+      stderr: '',
+    })
+    const result = await runStop(
+      { Stop: [{ command: 'x' }] },
+      { exec },
+    )
+    expect(result.blockingFeedback).toBe('incomplete')
+  })
+
+  test('continue false prevents even with exit 2', async () => {
+    const exec: HookExecFn = async () => ({
+      exitCode: 2,
+      stdout: JSON.stringify({ continue: false, stopReason: 'done' }),
+      stderr: 'would-block',
+    })
+    const result = await runStop(
+      { Stop: [{ command: 'x' }] },
+      { exec },
+    )
+    expect(result.preventContinuation).toBe(true)
+    expect(result.stopReason).toBe('done')
+    expect(result.blockingFeedback).toBeUndefined()
+  })
+
+  test('stopHookActive is forwarded in payload', async () => {
+    let seen: unknown
+    const exec: HookExecFn = async (_c, payload) => {
+      seen = payload
+      return { exitCode: 0, stdout: '', stderr: '' }
+    }
+    await runStop(
+      { Stop: [{ command: 'x' }] },
+      { exec, stopHookActive: true },
+    )
+    expect(seen).toEqual({
+      hook_event_name: 'Stop',
+      stop_hook_active: true,
+    })
   })
 })

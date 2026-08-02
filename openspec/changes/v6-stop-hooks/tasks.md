@@ -14,8 +14,8 @@
 
 ## 2. Blocking 续跑与 preventContinuation
 
-- [ ] 2.1 exit 2 / `decision: block` → 注入 Stop feedback 合成 user 再进一轮；`stop_hook_active`；计入 maxTurns + 单测
-- [ ] 2.2 stdout `continue: false` → preventContinuation，优先于 blocking，直接结束 + 单测
+- [x] 2.1 exit 2 / `decision: block` → 注入 Stop feedback 合成 user 再进一轮；`stop_hook_active`；计入 maxTurns + 单测
+- [x] 2.2 stdout `continue: false` → preventContinuation，优先于 blocking，直接结束 + 单测
 
 ## 3. 文档与验收
 
