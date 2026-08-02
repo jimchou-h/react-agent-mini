@@ -1,19 +1,20 @@
 ## Why
 
-复杂任务需要隔离上下文的子任务执行，而不污染主会话细节。claude-code 用嵌套 `query()` + AgentTool 实现子代理。mini 在单会话 Context Budget 与 hooks 就绪后，再引入**最小同步子代理**，避免过早上 swarm / worktree。
+复杂任务需要隔离上下文的子任务执行，而不污染主会话细节。claude-code 用嵌套 `query()` + `Agent` 工具实现子代理。mini 在 Memory / Stop 就绪后引入**最小同步子代理**，避免过早上 swarm / worktree。
 
 ## What Changes
 
-- **`Agent` 工具**（或等价名）：主模型可派生子任务；子任务跑嵌套 `query()`，返回摘要文本给父会话
-- **派生上下文**：子代理有独立 messages；权限派生自父（可更严）；工具子集可配置（默认与父相同或只读子集）
-- **深度限制**：默认最大嵌套深度 1（禁止孙代理），防止递归爆炸
-- **可观测**：TRACE / stderr 标明 `agent:*` 子运行；失败 fail-soft 回父为错误 tool_result
+- **`Agent` 工具**：必填 `description` + `prompt`；可选 `tool_names`；同步嵌套 `query()`，摘要回父 `tool_result`
+- **派生上下文**：独立 messages；`AbortController` 链到父；`depth = parent + 1`（与 Stop 共用 depth 语义）
+- **防递归**：默认 max depth 1；子工具池排除 `Agent`
+- **权限**：派生自父 `canUseTool`（可更严 / 只读）
+- **可观测**：TRACE `agent.start` / `agent.end`；失败 fail-soft 回父为错误 tool_result
 
 **非目标**：
 
-- Coordinator / swarm / 多 worker 并行
-- worktree 隔离、后台 fork、slash `context: fork`
-- 完整 CC AgentTool 全字段与 resume UI
+- `subagent_type` / 命名 agent 目录、Coordinator / swarm / 多 worker
+- worktree、后台 fork、slash `context: fork`、teammate
+- `SubagentStop`、完整 CC AgentTool 全字段与 resume UI
 
 ## Capabilities
 
@@ -23,13 +24,13 @@
 
 ### Modified Capabilities
 
-- `tool-system`: 注册 Agent 工具
-- `query-engine` / `react-loop`: 支持嵌套 query 与 depth 记账
+- `tool-system`: 注册 `Agent` 工具
+- `query-engine` / `react-loop`: 嵌套 query 与统一 depth
 - `permission-pipeline`: 子代理权限派生规则
 
 ## Impact
 
 - **修改**：`query` / `QueryEngine` / `ToolUseContext`（depth、派生 abort）
-- **新增**：`tools/AgentTool`（或 `tools/Agent`）
-- **版本**：v6 三件套之一（与 `v6-memory`、`v6-stop-hooks` 并行；建议在 Memory 之后实现）
-- **依赖**：v5 已完成；`v6-memory` 可选增强（子代理是否读 MEMORY），非硬阻塞
+- **新增**：`tools/AgentTool.ts`（或等价）
+- **版本**：v6 三件套之一（Memory、Stop 已归档；本 change 随后）
+- **依赖**：已归档的 Stop depth 语义；Memory 可选（子是否读 MEMORY 非硬阻塞）

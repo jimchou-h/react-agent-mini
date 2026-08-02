@@ -98,6 +98,9 @@ export function formatToolStartStatus(block: ToolUseBlock): string {
   if (block.name === 'Skill' && typeof block.input.skill === 'string') {
     return `[工具] Skill: ${block.input.skill}`
   }
+  if (block.name === 'Agent' && typeof block.input.description === 'string') {
+    return `[工具] Agent: ${block.input.description}`
+  }
 
   if (block.name === 'Write' && typeof block.input.file_path === 'string') {
     return `[工具] Write: ${block.input.file_path}`

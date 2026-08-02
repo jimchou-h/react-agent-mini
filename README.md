@@ -42,6 +42,23 @@ Pre/Post 的 matcher 为工具名精确匹配或 `*`；Stop 条目只需 `comman
 
 示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志 + Stop 收尾；可用 `STOP_DEMO=block|prevent`）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post` / `hooks.stop`。模块术语见 [`src/services/hooks/CONTEXT.md`](src/services/hooks/CONTEXT.md)。
 
+### Agent 子代理（同步）
+
+主模型可调用内置 **`Agent`** 工具派生子任务（对齐 CC AgentTool 精简版）：
+
+| 入参 | 必填 | 说明 |
+|------|------|------|
+| `description` | 是 | 短描述（TRACE / 状态行） |
+| `prompt` | 是 | 子任务说明 |
+| `tool_names` | 否 | 子工具白名单 |
+
+- 子会话独立 messages；只把末条 assistant 文本摘要回父 `tool_result`
+- `depth`：顶层 0；子为 1。默认 **maxDepth=1**（禁止孙代理）；子工具池 **排除 `Agent`**
+- 权限派生自父 `canUseTool`；子 `depth≥1` **不**跑 Stop
+- **不做：** swarm、worktree、后台 fork、`SubagentStop`、`subagent_type` 目录
+
+`TRACE=1` 可见 `agent.start` / `agent.end`。术语见 [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md)。
+
 ### Write / Edit 权限（简要）
 
 | 模式 | 行为 |

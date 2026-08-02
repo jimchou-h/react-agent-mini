@@ -10,6 +10,7 @@ import type { AssistantMessage, UserMessage } from './types/message.js'
 import type { DiscoveredSkill } from './skills/discover.js'
 import type { McpConnectedClient } from './services/mcp/types.js'
 import type { HookExecFn, HooksConfig } from './services/hooks/types.js'
+import type { QueryDeps } from './query/deps.js'
 
 /** 权限回调结果：放行，或拒绝并附上给模型看的说明 */
 export type CanUseToolResult =
@@ -51,6 +52,13 @@ export type ToolUseContext = {
   hooksConfig?: HooksConfig | null
   /** 测试可注入假 hook 执行器，避免真 spawn */
   hookExec?: HookExecFn
+  /**
+   * 嵌套 query 深度：0 = 顶层，≥1 = 子代理。
+   * 与 `query({ depth })` / Stop hooks 共用同一语义。
+   */
+  depth?: number
+  /** 测试可注入嵌套 query 的 deps（如 mock callModel） */
+  queryDeps?: Partial<QueryDeps>
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */

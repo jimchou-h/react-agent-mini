@@ -6,6 +6,7 @@
  */
 
 import type { Tools } from '../Tool.js'
+import { AgentTool } from './AgentTool.js'
 import { BashTool } from './BashTool.js'
 import { EchoTool } from './EchoTool.js'
 import { EditTool } from './EditTool.js'
@@ -31,5 +32,6 @@ export function getTools(): Tools {
     WriteTool,
     EditTool,
     BashTool,
+    AgentTool,
   ]
 }

@@ -8,7 +8,7 @@
 |------|------|------|
 | **Tool** | tool definition | `name`、`description`、`inputSchema`（Zod）、`call()` |
 | **Tools** | tools registry | `readonly Tool[]`，由 `getTools()` 提供 |
-| **ToolUseContext** | tool context | `tools` 列表 + 可选 `skills` + 可选 `canUseTool` |
+| **ToolUseContext** | tool context | `tools` + 可选 `skills` / `canUseTool` / `depth` / hooks |
 | **ToolResult** | tool result | `{ data, isError? }`，`runToolUse` 序列化为 `tool_result`；`isError` → `is_error` |
 | **tool_use** | tool use block | 模型请求调用工具；`AssistantMessage` 中的块类型 |
 | **tool_result** | tool result block | 工具执行结果；`UserMessage` 中的块类型 |
@@ -36,6 +36,19 @@
 | **Skill** | 是 | 按名称返回已发现 SKILL.md 正文；未知名称返回错误 |
 | **Write** | 否 | 覆盖写入 cwd 内文件；内容 ≤100KB；父目录须已存在 |
 | **Edit** | 否 | 已存在文件中 `old_string`→`new_string`；默认唯一匹配；可选 `replace_all`；文件 ≤100KB |
+| **Bash** | 否 | 在 cwd 执行 shell 命令；合并 stdout/stderr；超时/截断；非零退出标 `isError` |
+| **Agent** | 否 | 同步嵌套 `query` 子代理；摘要回父；子池排除 `Agent`；maxDepth=1 |
+
+### Agent 专用术语
+
+| 术语 | 说明 |
+|------|------|
+| **depth** | `ToolUseContext.depth` / `query({ depth })`：0 顶层，≥1 子代理 |
+| **createSubagentContext** | 派生 abort 链与 depth+1 |
+| **toolsForSubagent** | 父工具表去掉 `Agent`，可选 `tool_names` 白名单 |
+| **摘要** | 子会话末条 assistant 的 text；默认预算 32KB |
+
+**非目标：** swarm、worktree、后台 fork、`SubagentStop`、`subagent_type` 命名 agent 目录。
 
 ### Read 专用术语
 
@@ -60,6 +73,17 @@
 | **唯一匹配** | 默认 `old_string` 须恰好出现一次，否则报错 |
 | **replace_all** | 为 true 时替换全部出现 |
 | **Edit vs Write** | 改片段用 Edit；新建/整文件重写用 Write |
+
+### Bash 专用术语
+
+| 术语 | 说明 |
+|------|------|
+| **MAX_BASH_OUTPUT_CHARS** | 50000，合并输出超限后截断并附提示 |
+| **DEFAULT_BASH_TIMEOUT_MS** | 30000，缺省超时 |
+| **MAX_BASH_TIMEOUT_MS** | 120000，`timeout_ms` 上限 |
+| **超时中止** | 超时立即 resolve 并 `killTree`（Win 用 `taskkill /T /F`） |
+| **shell 选择** | Win: `ComSpec /d /s /c`；其余: `SHELL -c` |
+| **命令预览** | REPL 确认摘要与 CLI 状态行截断展示 `command` |
 
 ### Grep / Glob 术语
 

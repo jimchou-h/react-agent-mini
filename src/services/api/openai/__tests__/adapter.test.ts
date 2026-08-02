@@ -121,9 +121,10 @@ describe('toolsToOpenAI', () => {
   test('includes all registered tool definitions with JSON schema', () => {
     const tools = toolsToOpenAI(getTools())
 
-    expect(tools).toHaveLength(8)
+    expect(tools).toHaveLength(9)
     const names = tools.map(t => t.function.name).sort()
     expect(names).toEqual([
+      'Agent',
       'Bash',
       'Echo',
       'Edit',
