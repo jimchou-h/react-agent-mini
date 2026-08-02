@@ -118,6 +118,7 @@ export class QueryEngine {
       this.#memoryRefresh.projectContext,
       this.#memoryRefresh.skills,
       snapshot.content,
+      this.#memoryRefresh.cwd,
     )
     return true
   }

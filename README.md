@@ -39,7 +39,7 @@ bun install
 
 matcher 为工具名精确匹配或 `*`。命令经 shell 执行，stdin 为 JSON payload（含 `tool_name` / `tool_input` 等）。**命令可执行任意代码，只信任本工作区配置。**
 
-示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post`。本版不做 Stop hook。讲解见 [`docs/blog/hooks.md`](docs/blog/hooks.md)。
+示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post`。本版不做 Stop hook。讲解见 [`docs/blog/hooks.md`](docs/blog/hooks.md) · [CSDN](https://blog.csdn.net/weixin_43160044/article/details/163394425)。
 
 ### Write / Edit 权限（简要）
 
@@ -104,18 +104,19 @@ REPL 内可用：
 
 ### Agent Memory（跨会话偏好）
 
-可选文件 **`.agents/memory/MEMORY.md`**：启动时与项目说明一并注入 **system prompt**（顺序：AGENTS/CLAUDE → Memory → Skills 目录摘要）。缺失则跳过。
+可选文件 **`.agents/memory/MEMORY.md`**：启动时与项目说明一并注入 **system prompt**（顺序：AGENTS/CLAUDE → Memory 指引±正文 → Skills 目录摘要）。**即使文件缺失**也会注入路径与 remember 写法（对齐 claude-code memdir 精简版）。
 
 | 规则 | 行为 |
 |------|------|
 | 路径 | 仅 `.agents/memory/MEMORY.md`（相对 cwd） |
 | 大小 | 最多 32KB，超出截断 |
+| 缺失 | 启动成功；system 仍含路径指引与「currently empty」说明 |
 | 刷新 | REPL 每轮 `runTurn` 前按文件 mtime 刷新；未变则用缓存 |
-| 写入 | 用既有 `Write` / `Edit`（走 REPL 确认 / `ALLOW_WRITE`），无旁路 |
+| 写入 | 用既有 `Write` / `Edit` 写该文件（走 REPL 确认 / `ALLOW_WRITE`）；启动时 ensure `.agents/memory/` |
 | `/memory` | 只读展示路径与字符数 |
 | 与 compact | Memory 在 system 通道，**不替代** autocompact / `/compact` |
 
-术语见 [`src/services/memory/CONTEXT.md`](src/services/memory/CONTEXT.md)。
+术语见 [`src/services/memory/CONTEXT.md`](src/services/memory/CONTEXT.md)。讲解见 [`docs/blog/memory.md`](docs/blog/memory.md)。
 
 ### Skills（按需工作流）
 

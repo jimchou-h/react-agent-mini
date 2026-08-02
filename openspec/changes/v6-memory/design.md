@@ -16,9 +16,11 @@
 
 ### 2. 注入
 
-- 启动：与 project-context 一并进入 system 或 meta 附件（明确顺序：AGENTS → MEMORY 或相反，design 定：**AGENTS 先，MEMORY 后**）
-- 预算：硬上限（如 32KB），超出截断
+- 启动：与 project-context 一并进入 system（顺序：**AGENTS 先，Memory 段后**）
+- Memory 段**始终**含路径 + remember 指引（对齐 CC `buildMemoryLines`）；有正文则附上，否则标明 empty
+- 预算：正文硬上限 32KB，超出截断
 - 每轮：若 mtime 变则刷新；否则用缓存
+- 启动时 `ensureMemoryDirExists`（对齐 CC harness mkdir）
 
 ### 3. 更新
 

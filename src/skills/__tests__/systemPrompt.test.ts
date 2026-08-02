@@ -23,9 +23,14 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('- teach')
   })
 
-  test('leaves project context unchanged when no skills are available', () => {
-    expect(buildSystemPrompt('Project rules', [])).toBe('Project rules')
-    expect(buildSystemPrompt(undefined, [])).toBeUndefined()
+  test('always includes Memory path guidance even when file is empty', () => {
+    const result = buildSystemPrompt('Project rules', [], undefined, '/ws')
+    expect(result).toContain('.agents/memory/MEMORY.md')
+    expect(result).toContain('Project rules')
+    expect(result).toContain('remember')
+    const projectAt = result!.indexOf('Project rules')
+    const memoryAt = result!.indexOf('## Agent Memory')
+    expect(memoryAt).toBeGreaterThan(projectAt)
   })
 
   test('places Memory after project context and before skills', () => {
@@ -39,6 +44,7 @@ describe('buildSystemPrompt', () => {
         },
       ],
       'MEMORY body',
+      '/workspace',
     )
     expect(result).toBeDefined()
     const agentsAt = result!.indexOf('AGENTS body')
@@ -47,18 +53,20 @@ describe('buildSystemPrompt', () => {
     expect(agentsAt).toBeGreaterThanOrEqual(0)
     expect(memoryAt).toBeGreaterThan(agentsAt)
     expect(skillsAt).toBeGreaterThan(memoryAt)
+    expect(result).toContain('.agents/memory/MEMORY.md')
   })
 
-  test('Memory alone still yields a system prompt', () => {
-    expect(buildSystemPrompt(undefined, [], 'only memory')).toContain(
-      'only memory',
-    )
+  test('Memory guidance alone still yields a system prompt', () => {
+    const result = buildSystemPrompt(undefined, [], undefined, '/ws')
+    expect(result).toContain('## Agent Memory')
+    expect(result).toContain('currently empty')
   })
 
   test('loads project context, memory, and skills into one session snapshot', async () => {
     let projectLoads = 0
     let skillScans = 0
     let memoryLoads = 0
+    let ensureCalls = 0
     const skills = [
       {
         name: 'review',
@@ -83,14 +91,20 @@ describe('buildSystemPrompt', () => {
         expect(cwd).toBe('/workspace')
         return 'prefer dark mode'
       },
+      async ensureMemoryDirExists(cwd) {
+        ensureCalls++
+        expect(cwd).toBe('/workspace')
+      },
     })
 
     expect(projectLoads).toBe(1)
     expect(skillScans).toBe(1)
     expect(memoryLoads).toBe(1)
+    expect(ensureCalls).toBe(1)
     expect(session.skills).toBe(skills)
     expect(session.systemPrompt).toContain('Project rules')
     expect(session.systemPrompt).toContain('prefer dark mode')
+    expect(session.systemPrompt).toContain('.agents/memory/MEMORY.md')
     expect(session.systemPrompt).toContain('- review')
     expect(session.memory).toBe('prefer dark mode')
   })
