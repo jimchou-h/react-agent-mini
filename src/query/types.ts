@@ -40,6 +40,11 @@ export type QueryParams = {
   systemPrompt?: string
   /** 出站消息裁剪配置；缺省用环境变量/内置默认值（见 compact 模块） */
   compact?: CompactOptions
+  /**
+   * 嵌套 query 深度；0 = 顶层。Stop hooks 仅在 depth === 0 时执行。
+   * 子代理 / 嵌套调用应传 ≥1。
+   */
+  depth?: number
 }
 
 /**

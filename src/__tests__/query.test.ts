@@ -442,4 +442,174 @@ describe('query', () => {
       expect(skipped.content).toContain('Skipped because')
     }
   })
+
+  test('runs Stop hooks once on completed at depth 0', async () => {
+    let stopCalls = 0
+    async function* mockTextOnly(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      yield createAssistantMessage([{ type: 'text', text: 'done' }])
+    }
+
+    const tools = getTools()
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          hooksConfig: {
+            Stop: [{ command: 'stop-a' }, { command: 'stop-b' }],
+          },
+          hookExec: async () => {
+            stopCalls++
+            return { exitCode: 0, stdout: '', stderr: '' }
+          },
+        },
+        deps: { callModel: mockTextOnly, uuid: () => 'stop-0' },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(stopCalls).toBe(2)
+  })
+
+  test('skips Stop hooks when depth >= 1', async () => {
+    let stopCalls = 0
+    async function* mockTextOnly(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      yield createAssistantMessage([{ type: 'text', text: 'nested' }])
+    }
+
+    const tools = getTools()
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        depth: 1,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          hooksConfig: { Stop: [{ command: 'stop' }] },
+          hookExec: async () => {
+            stopCalls++
+            return { exitCode: 0, stdout: '', stderr: '' }
+          },
+        },
+        deps: { callModel: mockTextOnly, uuid: () => 'stop-depth' },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(stopCalls).toBe(0)
+  })
+
+  test('Stop non-zero exit does not force another model turn', async () => {
+    let modelCalls = 0
+    async function* mockTextOnly(): AsyncGenerator<
+      StreamEvent | AssistantMessage
+    > {
+      modelCalls++
+      yield createAssistantMessage([{ type: 'text', text: 'once' }])
+    }
+
+    const tools = getTools()
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          hooksConfig: { Stop: [{ command: 'fail' }] },
+          hookExec: async () => ({
+            exitCode: 1,
+            stdout: '',
+            stderr: 'boom',
+          }),
+        },
+        deps: { callModel: mockTextOnly, uuid: () => 'stop-fail' },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(modelCalls).toBe(1)
+  })
+
+  test('HOOKS=0 skips Stop when config is loaded from disk', async () => {
+    const prev = process.env.HOOKS
+    process.env.HOOKS = '0'
+    let stopCalls = 0
+    try {
+      async function* mockTextOnly(): AsyncGenerator<
+        StreamEvent | AssistantMessage
+      > {
+        yield createAssistantMessage([{ type: 'text', text: 'hi' }])
+      }
+
+      const tools = getTools()
+      const { terminal } = await drainQuery(
+        query({
+          messages: [createUserMessage('hi')],
+          tools,
+          toolUseContext: {
+            tools,
+            // 不注入 hooksConfig → 走 loadHooksConfig；HOOKS=0 → null
+            hookExec: async () => {
+              stopCalls++
+              return { exitCode: 0, stdout: '', stderr: '' }
+            },
+          },
+          deps: { callModel: mockTextOnly, uuid: () => 'stop-hooks0' },
+        }),
+      )
+
+      expect(terminal).toEqual({ reason: 'completed' })
+      expect(stopCalls).toBe(0)
+    } finally {
+      if (prev === undefined) delete process.env.HOOKS
+      else process.env.HOOKS = prev
+    }
+  })
+
+  test('TRACE=1 emits hooks.stop on completed', async () => {
+    const prev = process.env.TRACE
+    process.env.TRACE = '1'
+    const lines: string[] = []
+    const originalError = console.error
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    }
+
+    try {
+      async function* mockTextOnly(): AsyncGenerator<
+        StreamEvent | AssistantMessage
+      > {
+        yield createAssistantMessage([{ type: 'text', text: 'hi' }])
+      }
+
+      const tools = getTools()
+      await drainQuery(
+        query({
+          messages: [createUserMessage('hi')],
+          tools,
+          toolUseContext: {
+            ...createMinimalToolContext(tools),
+            hooksConfig: { Stop: [{ command: 't' }] },
+            hookExec: async () => ({
+              exitCode: 0,
+              stdout: '',
+              stderr: '',
+            }),
+          },
+          deps: { callModel: mockTextOnly, uuid: () => 'stop-trace' },
+        }),
+      )
+
+      expect(lines.some(l => l.includes('hooks.stop'))).toBe(true)
+    } finally {
+      console.error = originalError
+      if (prev === undefined) delete process.env.TRACE
+      else process.env.TRACE = prev
+    }
+  })
 })

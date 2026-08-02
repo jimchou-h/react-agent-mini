@@ -6,7 +6,7 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { HookCommandEntry, HooksConfig } from './types.js'
+import type { HookCommandEntry, HooksConfig, StopHookEntry } from './types.js'
 
 const CONFIG_REL = join('.agents', 'hooks.json')
 
@@ -32,6 +32,20 @@ function parseEntries(raw: unknown): HookCommandEntry[] {
   }))
 }
 
+function isStopEntry(value: unknown): value is StopHookEntry {
+  if (!value || typeof value !== 'object') return false
+  const o = value as Record<string, unknown>
+  return typeof o.command === 'string'
+}
+
+function parseStopEntries(raw: unknown): StopHookEntry[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(isStopEntry).map(e => ({
+    command: e.command,
+    ...(typeof e.timeoutMs === 'number' ? { timeoutMs: e.timeoutMs } : {}),
+  }))
+}
+
 /**
  * 解析 hooks JSON 对象；非法结构返回空配置（不抛）。
  */
@@ -46,6 +60,7 @@ export function parseHooksConfig(raw: unknown): HooksConfig {
   return {
     PreToolUse: parseEntries(body.PreToolUse),
     PostToolUse: parseEntries(body.PostToolUse),
+    Stop: parseStopEntries(body.Stop),
   }
 }
 

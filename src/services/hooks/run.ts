@@ -5,11 +5,12 @@
 import { trace } from '../../utils/trace.js'
 import type {
   HookCommandEntry,
-  HookEventName,
   HookExecFn,
   HookPayload,
   HooksConfig,
   PreHookDecision,
+  StopHookPayload,
+  StopRunResult,
 } from './types.js'
 
 export const DEFAULT_HOOK_TIMEOUT_MS = 5_000
@@ -22,7 +23,7 @@ export function matchHook(matcher: string, toolName: string): boolean {
 
 export function entriesForEvent(
   config: HooksConfig | null | undefined,
-  event: HookEventName,
+  event: 'PreToolUse' | 'PostToolUse',
   toolName: string,
 ): HookCommandEntry[] {
   if (!config) return []
@@ -232,4 +233,51 @@ export async function runPostToolUse(
       trace('hooks.post_error', { tool: toolName, error: msg })
     }
   }
+}
+
+/**
+ * 运行 Stop hooks（顶层 completed 时由 query 调用）。
+ * #88：仅观察 — 非 0 不抛；不在此强制再进模型轮（exit 2 续跑见 #89）。
+ */
+export async function runStop(
+  config: HooksConfig | null | undefined,
+  options?: RunHooksOptions & { stopHookActive?: boolean },
+): Promise<StopRunResult> {
+  const entries = config?.Stop ?? []
+  if (entries.length === 0) return { count: 0, outcomes: [] }
+
+  const exec = options?.exec ?? defaultHookExec
+  const payload: StopHookPayload = {
+    hook_event_name: 'Stop',
+    stop_hook_active: options?.stopHookActive === true,
+  }
+
+  const outcomes: StopRunResult['outcomes'] = []
+  for (const entry of entries) {
+    const timeoutMs = entry.timeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS
+    try {
+      const result = await exec(entry.command, payload, { timeoutMs })
+      trace('hooks.stop', {
+        exitCode: result.exitCode,
+        active: payload.stop_hook_active === true,
+      })
+      outcomes.push({
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      })
+      if (result.exitCode !== 0 && result.exitCode !== 2) {
+        console.error(
+          `[hooks] Stop failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`,
+        )
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[hooks] Stop error: ${msg}`)
+      trace('hooks.stop_error', { error: msg })
+      outcomes.push({ exitCode: 1, stdout: '', stderr: msg })
+    }
+  }
+
+  return { count: outcomes.length, outcomes }
 }

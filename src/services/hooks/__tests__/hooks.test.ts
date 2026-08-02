@@ -11,6 +11,7 @@ import {
   matchHook,
   runPreToolUse,
   runPostToolUse,
+  runStop,
 } from '../run.js'
 import type { HookExecFn, HooksConfig } from '../types.js'
 
@@ -30,6 +31,17 @@ describe('parseHooksConfig / loadHooksConfig', () => {
       },
     })
     expect(cfg.PostToolUse).toHaveLength(1)
+  })
+
+  test('parses Stop entries (command required, matcher optional)', () => {
+    const cfg = parseHooksConfig({
+      Stop: [{ command: 'node ./on-stop.mjs', timeoutMs: 3000 }],
+    })
+    expect(cfg.Stop).toHaveLength(1)
+    expect(cfg.Stop![0]).toEqual({
+      command: 'node ./on-stop.mjs',
+      timeoutMs: 3000,
+    })
   })
 
   test('returns null when file missing', () => {
@@ -202,5 +214,54 @@ describe('runPostToolUse', () => {
     } finally {
       console.error = prev
     }
+  })
+})
+
+describe('runStop', () => {
+  test('invokes each Stop command once with Stop payload', async () => {
+    const payloads: unknown[] = []
+    const exec: HookExecFn = async (_cmd, payload) => {
+      payloads.push(payload)
+      return { exitCode: 0, stdout: '', stderr: '' }
+    }
+    const result = await runStop(
+      {
+        Stop: [
+          { command: 'a' },
+          { command: 'b', timeoutMs: 1000 },
+        ],
+      },
+      { exec },
+    )
+    expect(result.count).toBe(2)
+    expect(payloads).toEqual([
+      { hook_event_name: 'Stop', stop_hook_active: false },
+      { hook_event_name: 'Stop', stop_hook_active: false },
+    ])
+  })
+
+  test('non-zero exit does not throw (fail-soft)', async () => {
+    const exec: HookExecFn = async () => ({
+      exitCode: 1,
+      stdout: '',
+      stderr: 'oops',
+    })
+    const result = await runStop(
+      { Stop: [{ command: 'x' }] },
+      { exec },
+    )
+    expect(result.count).toBe(1)
+    expect(result.outcomes[0]!.exitCode).toBe(1)
+  })
+
+  test('empty or missing Stop is no-op', async () => {
+    let called = false
+    const exec: HookExecFn = async () => {
+      called = true
+      return { exitCode: 0, stdout: '', stderr: '' }
+    }
+    expect(await runStop(null, { exec })).toEqual({ count: 0, outcomes: [] })
+    expect(await runStop({}, { exec })).toEqual({ count: 0, outcomes: [] })
+    expect(called).toBe(false)
   })
 })

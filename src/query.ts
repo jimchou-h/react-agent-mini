@@ -17,6 +17,9 @@ import {
   applyRetainTailIfNeeded,
   applyToolResultBudget,
 } from './services/compact/compact.js'
+import { loadHooksConfig } from './services/hooks/load.js'
+import { runStop } from './services/hooks/run.js'
+import type { HooksConfig } from './services/hooks/types.js'
 import { runTools } from './services/tools/orchestration.js'
 import {
   appendTurnMessages,
@@ -24,6 +27,12 @@ import {
   extractToolUseBlocks,
 } from './utils/messages.js'
 import { trace } from './utils/trace.js'
+
+function resolveHooksConfig(params: QueryParams): HooksConfig | null {
+  const fromCtx = params.toolUseContext.hooksConfig
+  if (fromCtx !== undefined) return fromCtx
+  return loadHooksConfig()
+}
 
 /**
  * ReAct 主入口 — 对齐 claude-code src/query.ts 的 public API
@@ -144,8 +153,16 @@ async function* queryLoop(
       }
     }
 
-    // —— 阶段 2：无工具则结束 ——
+    // —— 阶段 2：无工具则结束（顶层 Stop：#88 observe-only）——
     if (!needsFollowUp) {
+      const depth = params.depth ?? 0
+      if (depth === 0) {
+        const hooksConfig = resolveHooksConfig(params)
+        await runStop(hooksConfig, {
+          exec: params.toolUseContext.hookExec,
+          stopHookActive: false,
+        })
+      }
       trace('query.turn_end', { reason: 'completed', turn: turnCount })
       return { reason: 'completed' }
     }
