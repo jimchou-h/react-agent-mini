@@ -31,4 +31,5 @@
 
 - **新增**：memory 加载与注入模块；可选 Memory 工具或 slash
 - **修改**：CLI/REPL 启动与 query 预取路径
-- **依赖建议**：在 `v5-autocompact`、`v6-hooks` 之后实现更稳（非硬阻塞开 change）
+- **版本**：v6 三件套之一（与 `v6-subagents`、`v6-stop-hooks` 并行；建议实现顺序 Memory → Stop → Subagents）
+- **依赖**：v5（autocompact / hooks Pre·Post / skill slash）已完成

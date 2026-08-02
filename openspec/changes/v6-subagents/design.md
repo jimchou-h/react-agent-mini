@@ -1,6 +1,6 @@
 ## Context
 
-主会话工具循环无法隔离「调研子任务」上下文。CC 嵌套 `query()`；mini 做深度 1 的同步 Agent 工具。
+主会话工具循环无法隔离「调研子任务」上下文。CC 嵌套 `query()`；mini 做深度 1 的同步 Agent 工具。本 change 为 **v6** 三件套之一（建议 Memory 与 Stop 之后或并行末段落地）。
 
 ## Goals / Non-Goals
 

@@ -1,6 +1,6 @@
 ## Context
 
-静态 `AGENTS.md` 无法在会话中沉淀「用户偏好 / 项目约定」。CC 有 memory 预取与 session memory；mini 先做文件型记忆 + 预算注入。
+静态 `AGENTS.md` 无法在会话中沉淀「用户偏好 / 项目约定」。CC 有 memory 预取与 session memory；mini 先做文件型记忆 + 预算注入。本 change 为 **v6** 三件套之一（Memory / Stop hooks / Subagents）。
 
 ## Goals / Non-Goals
 
@@ -12,7 +12,7 @@
 
 ### 1. 存储
 
-单文件 `MEMORY.md`（路径：项目根或 `.agents/memory/MEMORY.md`，实现时定一处并文档化）。缺失则跳过。
+单文件 `.agents/memory/MEMORY.md`（缺失则跳过）。不在项目根扫描 `MEMORY.md`，避免与文档噪音混淆。
 
 ### 2. 注入
 

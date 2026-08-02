@@ -31,4 +31,5 @@
 
 - **修改**：`query` / `QueryEngine` / `ToolUseContext`（depth、派生 abort）
 - **新增**：`tools/AgentTool`（或 `tools/Agent`）
-- **依赖建议**：`v5-autocompact`、`v6-hooks` 完成后再实现；memory 可选增强
+- **版本**：v6 三件套之一（与 `v6-memory`、`v6-stop-hooks` 并行；建议在 Memory 之后实现）
+- **依赖**：v5 已完成；`v6-memory` 可选增强（子代理是否读 MEMORY），非硬阻塞
