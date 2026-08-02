@@ -10,5 +10,10 @@
       "matcher": "*",
       "command": "node examples/hooks/log-post.mjs"
     }
+  ],
+  "Stop": [
+    {
+      "command": "node examples/hooks/on-stop.mjs"
+    }
   ]
 }

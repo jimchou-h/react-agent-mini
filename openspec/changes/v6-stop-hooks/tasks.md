@@ -19,5 +19,5 @@
 
 ## 3. 文档与验收
 
-- [ ] 3.1 README / hooks CONTEXT / 示例：CC 对齐的 exit 码与 JSON；去掉「本版不做 Stop」
-- [ ] 3.2 `bun test` + typecheck；可选 `examples/hooks` Stop 演示（exit 2 或 continue false）
+- [x] 3.1 README / hooks CONTEXT / 示例：CC 对齐的 exit 码与 JSON；去掉「本版不做 Stop」
+- [x] 3.2 `bun test` + typecheck；可选 `examples/hooks` Stop 演示（exit 2 或 continue false）

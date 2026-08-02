@@ -28,18 +28,19 @@ bun install
 | `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 确定性 microcompact / 保尾的出站字符阈值 |
 | `HOOKS` | 否 | 开启 | 设为 `0` 跳过 `.agents/hooks.json` 中的生命周期 hooks |
 
-### Hooks（PreToolUse / PostToolUse）
+### Hooks（PreToolUse / PostToolUse / Stop）
 
-在项目根放置 `.agents/hooks.json`，可在权限通过后、工具 `call` 前后跑命令型 hook：
+在项目根放置 `.agents/hooks.json`，可在权限通过后、工具 `call` 前后，以及**顶层** `query` 正常结束时跑命令型 hook：
 
-| 事件 | 时机 | 失败行为 |
-|------|------|----------|
+| 事件 | 时机 | 失败 / 控制行为 |
+|------|------|-----------------|
 | **PreToolUse** | `call` 前 | `exit 2` 或 stdout JSON `permissionDecision: "deny"` → 不执行工具；其它非 0 默认 fail-soft（可设 `denyOnFailure`） |
 | **PostToolUse** | `call` 后 | 只警告，不撤销已有 `tool_result` |
+| **Stop** | 顶层 completed（无 tool_use；`depth === 0`） | `exit 0` 正常结束；`exit 2` / stdout `decision: "block"` → 注入 `Stop hook feedback:` 再进一轮（计入 maxTurns）；stdout `continue: false` → 直接结束（优先于 exit 2）；其它非 0 fail-soft |
 
-matcher 为工具名精确匹配或 `*`。命令经 shell 执行，stdin 为 JSON payload（含 `tool_name` / `tool_input` 等）。**命令可执行任意代码，只信任本工作区配置。**
+Pre/Post 的 matcher 为工具名精确匹配或 `*`；Stop 条目只需 `command`（matcher 忽略）。命令经 shell 执行，stdin 为 JSON payload。**命令可执行任意代码，只信任本工作区配置。** `HOOKS=0` 跳过全部 hooks。
 
-示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post`。本版不做 Stop hook。讲解见 [`docs/blog/hooks.md`](docs/blog/hooks.md) · [CSDN](https://blog.csdn.net/weixin_43160044/article/details/163394425)。
+示例见 [`examples/hooks/`](examples/hooks/)（拦 Bash + Post 打日志 + Stop 收尾；可用 `STOP_DEMO=block|prevent`）。`TRACE=1` 时 stderr 有 `hooks.pre` / `hooks.post` / `hooks.stop`。模块术语见 [`src/services/hooks/CONTEXT.md`](src/services/hooks/CONTEXT.md)。
 
 ### Write / Edit 权限（简要）
 
