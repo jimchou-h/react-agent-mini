@@ -23,6 +23,8 @@
 - **WHEN** 会话启动且 Memory 文件缺失或为空
 - **THEN** 模型上下文仍包含 `.agents/memory/MEMORY.md`（或解析后的绝对路径）及 remember 相关说明
 
+### Requirement: Memory 预算
+
 单次注入的 Memory 正文 SHALL 不超过配置上限；超出则截断并可不阻断会话。
 
 #### Scenario: 超大 Memory 截断
