@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Bash / Skill / Write / Edit 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
+定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Bash / Skill / Write / Edit / Agent 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
 
 ## Requirements
 
@@ -135,6 +135,20 @@
 
 - **WHEN** 调用 `getTools()`
 - **THEN** 返回列表中存在 `name === 'Bash'` 的工具
+
+### Requirement: Agent 工具注册
+
+会话工具表 SHALL 包含 `Agent` 工具（当 subagents 能力启用时）。顶层工具表可含 `Agent`；嵌套子代理工具表 SHALL 不含 `Agent`。
+
+#### Scenario: getTools 含 Agent
+
+- **WHEN** 调用顶层 `getTools()` 且 subagents 启用
+- **THEN** 列表包含 `Agent`
+
+#### Scenario: 子会话工具表无 Agent
+
+- **WHEN** 为嵌套 Agent 运行组装工具表
+- **THEN** 列表不包含 `Agent`
 
 ### Requirement: 动态工具合并
 
