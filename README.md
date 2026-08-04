@@ -57,7 +57,18 @@ Pre/Post 的 matcher 为工具名精确匹配或 `*`；Stop 条目只需 `comman
 - 权限派生自父 `canUseTool`；子 `depth≥1` **不**跑 Stop
 - **不做：** swarm、worktree、后台 fork、`SubagentStop`、`subagent_type` 目录
 
-`TRACE=1` 可见 `agent.start` / `agent.end`。术语见 [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md)。
+`TRACE=1` 可见 `agent.start` / `agent.end`。术语见 [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md)。讲解见 [`docs/blog/subagents.md`](docs/blog/subagents.md)。
+
+### Interrupt（Ctrl+C）
+
+REPL 运行中：
+
+| 时机 | 行为 |
+|------|------|
+| **有进行中的 turn** | 第一次 Ctrl+C / SIGINT → `abortCurrentTurn`，中止当前 `query`（含流式模型请求与同步 `Agent` 子会话）；打印「已中断当前回合」，**会话可继续**输入 |
+| **空闲（无 turn）** | interrupt → 关闭 readline并结束 REPL |
+
+程序化宿主可调用 `QueryEngine.abortCurrentTurn(reason?)`。`query` 会把 `abortController.signal` 传给 `callModel`。
 
 ### Write / Edit 权限（简要）
 

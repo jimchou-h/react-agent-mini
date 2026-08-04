@@ -22,6 +22,7 @@ import { formatSkillInjection } from '../skills/inject.js'
 import { parseSkillSlash } from '../skills/slash.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
+import { installTurnInterrupt } from './turnInterrupt.js'
 
 /** 轮次结束后打印上下文占用（估算或 lastUsage） */
 function printContextUsage(engine: QueryEngine, print: (text: string) => void): void {
@@ -336,18 +337,40 @@ export async function runRepl(
     summarizeForCompact,
   }
 
-  if (existingRl) {
-    await runReplSession({
-      engine,
-      lines: linesFromReadlineQuestions(existingRl),
-      ...session,
+  const bindInterrupt = (
+    rl: { close: () => void },
+  ): ReturnType<typeof installTurnInterrupt> =>
+    installTurnInterrupt({
+      abortCurrentTurn: () => {
+        const ok = engine.abortCurrentTurn('interrupt')
+        if (ok) {
+          console.log('\n已中断当前回合')
+        }
+        return ok
+      },
+      onIdleInterrupt: () => {
+        rl.close()
+      },
     })
+
+  if (existingRl) {
+    const interrupt = bindInterrupt(existingRl)
+    try {
+      await runReplSession({
+        engine,
+        lines: linesFromReadlineQuestions(existingRl),
+        ...session,
+      })
+    } finally {
+      interrupt.dispose()
+    }
     return
   }
 
   const readline = await import('node:readline/promises')
   const { stdin: input, stdout: output } = await import('node:process')
   const rl = readline.createInterface({ input, output })
+  const interrupt = bindInterrupt(rl)
 
   try {
     await runReplSession({
@@ -356,6 +379,7 @@ export async function runRepl(
       ...session,
     })
   } finally {
+    interrupt.dispose()
     rl.close()
   }
 }

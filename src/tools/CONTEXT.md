@@ -44,9 +44,10 @@
 | 术语 | 说明 |
 |------|------|
 | **depth** | `ToolUseContext.depth` / `query({ depth })`：0 顶层，≥1 子代理 |
-| **createSubagentContext** | 派生 abort 链与 depth+1 |
+| **createSubagentContext** | 派生 abort 链与 depth+1（父 abort → 子 abort） |
 | **toolsForSubagent** | 父工具表去掉 `Agent`，可选 `tool_names` 白名单 |
 | **摘要** | 子会话末条 assistant 的 text；默认预算 32KB |
+| **interrupt** | REPL 第一次 SIGINT abort 当前 turn（含同步 Agent）；空闲则退出；见 `QueryEngine.abortCurrentTurn` |
 
 **非目标：** swarm、worktree、后台 fork、`SubagentStop`、`subagent_type` 命名 agent 目录。
 

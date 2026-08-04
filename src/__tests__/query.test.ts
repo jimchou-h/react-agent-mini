@@ -317,6 +317,77 @@ describe('query', () => {
     }
   })
 
+  test('forwards abortController.signal to callModel', async () => {
+    const tools = getTools()
+    const abortController = new AbortController()
+    let seenSignal: AbortSignal | undefined
+
+    async function* mockCaptureSignal(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      seenSignal = params.signal
+      yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+    }
+
+    const { terminal } = await drainQuery(
+      query({
+        messages: [createUserMessage('hi')],
+        tools,
+        toolUseContext: {
+          ...createMinimalToolContext(tools),
+          abortController,
+        },
+        deps: { callModel: mockCaptureSignal },
+      }),
+    )
+
+    expect(terminal).toEqual({ reason: 'completed' })
+    expect(seenSignal).toBe(abortController.signal)
+  })
+
+  test('returns aborted when signal aborts during callModel stream', async () => {
+    const tools = getTools()
+    const abortController = new AbortController()
+
+    async function* mockStreamThenAbort(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      yield { type: 'text_delta', text: 'partial' }
+      await new Promise<never>((_resolve, reject) => {
+        const fail = () => {
+          const err = new Error('Aborted')
+          err.name = 'AbortError'
+          reject(err)
+        }
+        if (params.signal?.aborted) {
+          fail()
+          return
+        }
+        params.signal?.addEventListener('abort', fail, { once: true })
+      })
+    }
+
+    const gen = query({
+      messages: [createUserMessage('stream')],
+      tools,
+      toolUseContext: {
+        ...createMinimalToolContext(tools),
+        abortController,
+      },
+      deps: { callModel: mockStreamThenAbort },
+    })
+
+    const first = await gen.next()
+    expect(first.done).toBe(false)
+    expect(first.value).toEqual({ type: 'text_delta', text: 'partial' })
+
+    abortController.abort('interrupt')
+
+    const { terminal, collected } = await drainQuery(gen)
+    expect(collected).toEqual([])
+    expect(terminal).toEqual({ reason: 'aborted' })
+  })
+
   test('returns aborted when abortController is aborted after tool deny', async () => {
     async function* mockWriteOnce(): AsyncGenerator<
       StreamEvent | AssistantMessage

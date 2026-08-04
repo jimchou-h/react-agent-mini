@@ -29,6 +29,12 @@ import {
 } from './utils/messages.js'
 import { trace } from './utils/trace.js'
 
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const name = (err as { name?: string }).name
+  return name === 'AbortError' || name === 'APIUserAbortError'
+}
+
 function resolveHooksConfig(params: QueryParams): HooksConfig | null {
   const fromCtx = params.toolUseContext.hooksConfig
   if (fromCtx !== undefined) return fromCtx
@@ -138,26 +144,47 @@ async function* queryLoop(
     )
     outbound = applyRetainTailIfNeeded(outbound, compactOpts)
 
-    for await (const chunk of deps.callModel({
-      messages: outbound,
-      tools: params.tools,
-      systemPrompt: params.systemPrompt,
-    })) {
-      if (chunk.type === 'text_delta') {
-        yield chunk satisfies StreamEvent
-        continue
-      }
+    const abortSignal = params.toolUseContext.abortController?.signal
 
-      if (chunk.type === 'assistant') {
-        assistantMessages.push(chunk)
-        yield chunk
+    try {
+      for await (const chunk of deps.callModel({
+        messages: outbound,
+        tools: params.tools,
+        systemPrompt: params.systemPrompt,
+        signal: abortSignal,
+      })) {
+        if (abortSignal?.aborted) {
+          trace('query.turn_end', { reason: 'aborted', turn: turnCount })
+          return { reason: 'aborted' }
+        }
 
-        const blocks = extractToolUseBlocks(chunk)
-        if (blocks.length > 0) {
-          needsFollowUp = true
-          toolUseBlocks.push(...blocks)
+        if (chunk.type === 'text_delta') {
+          yield chunk satisfies StreamEvent
+          continue
+        }
+
+        if (chunk.type === 'assistant') {
+          assistantMessages.push(chunk)
+          yield chunk
+
+          const blocks = extractToolUseBlocks(chunk)
+          if (blocks.length > 0) {
+            needsFollowUp = true
+            toolUseBlocks.push(...blocks)
+          }
         }
       }
+    } catch (err) {
+      if (abortSignal?.aborted || isAbortError(err)) {
+        trace('query.turn_end', { reason: 'aborted', turn: turnCount })
+        return { reason: 'aborted' }
+      }
+      throw err
+    }
+
+    if (abortSignal?.aborted) {
+      trace('query.turn_end', { reason: 'aborted', turn: turnCount })
+      return { reason: 'aborted' }
     }
 
     // —— 阶段 2：无工具则 Stop / 结束 ——

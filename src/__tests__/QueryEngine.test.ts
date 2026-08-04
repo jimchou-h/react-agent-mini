@@ -216,4 +216,42 @@ describe('QueryEngine', () => {
     expect(collected.some(c => c.type === 'text_delta')).toBe(true)
     expect(collected.some(c => c.type === 'assistant')).toBe(true)
   })
+
+  test('abortCurrentTurn aborts in-flight runTurn and clears isTurnInProgress', async () => {
+    const tools = getTools()
+    async function* mockWaitForAbort(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      yield { type: 'text_delta', text: '…' }
+      await new Promise<never>((_resolve, reject) => {
+        const fail = () => {
+          const err = new Error('Aborted')
+          err.name = 'AbortError'
+          reject(err)
+        }
+        if (params.signal?.aborted) {
+          fail()
+          return
+        }
+        params.signal?.addEventListener('abort', fail, { once: true })
+      })
+    }
+
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: { callModel: mockWaitForAbort },
+    })
+
+    const gen = engine.runTurn('打断我')
+    const first = await gen.next()
+    expect(first.done).toBe(false)
+    expect(engine.isTurnInProgress).toBe(true)
+    expect(engine.abortCurrentTurn('interrupt')).toBe(true)
+
+    const { terminal } = await drainTurn(gen)
+    expect(terminal).toEqual({ reason: 'aborted' })
+    expect(engine.isTurnInProgress).toBe(false)
+    expect(engine.abortCurrentTurn()).toBe(false)
+  })
 })

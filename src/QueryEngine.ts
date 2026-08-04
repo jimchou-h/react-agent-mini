@@ -63,6 +63,8 @@ export class QueryEngine {
   #memoryRefresh: MemoryRefreshBinding | undefined
   #messages: Message[] = []
   #lastUsage: TokenUsage | null = null
+  /** 当前 runTurn 的 AbortController；无进行中 turn 时为 undefined */
+  #currentAbort: AbortController | undefined
 
   constructor(params: QueryEngineParams) {
     this.#tools = params.tools
@@ -76,6 +78,22 @@ export class QueryEngine {
   /** 当前会话消息历史（只读快照视图；写入请用 appendMessages / runTurn） */
   get messages(): Message[] {
     return this.#messages
+  }
+
+  /** 是否有尚未结束的 runTurn */
+  get isTurnInProgress(): boolean {
+    return this.#currentAbort !== undefined
+  }
+
+  /**
+   * 中止当前轮（interrupt / 宿主取消）。
+   * @returns 是否实际触发了 abort（无进行中 turn 时为 false）
+   */
+  abortCurrentTurn(reason: unknown = 'interrupt'): boolean {
+    const ac = this.#currentAbort
+    if (!ac || ac.signal.aborted) return false
+    ac.abort(reason)
+    return true
   }
 
   /** 当前出站 system prompt（含可能已刷新的 Memory） */
@@ -146,31 +164,38 @@ export class QueryEngine {
       throw new Error('runTurn 需要 userText 或 injectBefore')
     }
 
-    // 每轮独立 AbortController：用户拒绝写操作只结束本轮，不影响后续 REPL 输入
+    // 每轮独立 AbortController：用户拒绝写操作 / interrupt 只结束本轮
     const abortController = new AbortController()
+    this.#currentAbort = abortController
     const toolUseContext: ToolUseContext = {
       ...this.#toolUseContext,
       abortController,
     }
 
-    const gen = query({
-      messages: this.#messages,
-      tools: this.#tools,
-      toolUseContext,
-      maxTurns: this.#maxTurns,
-      deps: this.#deps,
-      systemPrompt: this.#systemPrompt,
-    })
+    try {
+      const gen = query({
+        messages: this.#messages,
+        tools: this.#tools,
+        toolUseContext,
+        maxTurns: this.#maxTurns,
+        deps: this.#deps,
+        systemPrompt: this.#systemPrompt,
+      })
 
-    while (true) {
-      const { value, done } = await gen.next()
-      if (done) {
-        return value
+      while (true) {
+        const { value, done } = await gen.next()
+        if (done) {
+          return value
+        }
+        if (value.type === 'assistant' || value.type === 'user') {
+          this.#messages.push(value)
+        }
+        yield value
       }
-      if (value.type === 'assistant' || value.type === 'user') {
-        this.#messages.push(value)
+    } finally {
+      if (this.#currentAbort === abortController) {
+        this.#currentAbort = undefined
       }
-      yield value
     }
   }
 

@@ -57,7 +57,7 @@ export type CallModelParams = {
   messages: Message[]
   /** 工具定义列表，Provider 转为 API tools schema */
   tools: Tools
-  /** 可选中止信号，用于用户取消（v0 未接线） */
+  /** 可选中止信号，用于用户取消；query 从 abortController 透传 */
   signal?: AbortSignal
   /** 项目级 system prompt；不写入对话 messages 历史 */
   systemPrompt?: string

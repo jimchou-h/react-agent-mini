@@ -219,4 +219,52 @@ describe('AgentTool', () => {
     expect(result.isError).toBe(true)
     expect(String(result.data)).toContain('aborted')
   })
+
+  test('parent abort during nested stream stops Agent with is_error', async () => {
+    const parentAbort = new AbortController()
+    let childSawAbort = false
+    let secondModelCall = 0
+
+    async function* mockNestedStream(
+      params: CallModelParams,
+    ): AsyncGenerator<StreamEvent | AssistantMessage> {
+      secondModelCall++
+      yield { type: 'text_delta', text: 'working' }
+      await new Promise<never>((_resolve, reject) => {
+        const fail = () => {
+          childSawAbort = params.signal?.aborted === true
+          const err = new Error('Aborted')
+          err.name = 'AbortError'
+          reject(err)
+        }
+        if (params.signal?.aborted) {
+          fail()
+          return
+        }
+        params.signal?.addEventListener('abort', fail, { once: true })
+      })
+    }
+
+    const callPromise = AgentTool.call(
+      { description: 'cascade', prompt: 'long task' },
+      {
+        ...createMinimalToolContext([EchoTool, AgentTool]),
+        abortController: parentAbort,
+        queryDeps: {
+          callModel: mockNestedStream,
+          uuid: () => 'cascade-u',
+        },
+      },
+    )
+
+    // 等子 callModel 挂上 abort 监听后再 abort 父
+    await new Promise(r => setTimeout(r, 20))
+    parentAbort.abort('interrupt')
+
+    const result = await callPromise
+    expect(result.isError).toBe(true)
+    expect(String(result.data)).toMatch(/abort/i)
+    expect(childSawAbort).toBe(true)
+    expect(secondModelCall).toBe(1)
+  })
 })
