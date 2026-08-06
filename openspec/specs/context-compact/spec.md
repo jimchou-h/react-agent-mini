@@ -31,7 +31,7 @@ Context Budget：在每轮调用模型前对出站消息做确定性裁剪（too
 
 ### Requirement: 阈值触发加重裁剪
 
-系统 SHALL 在出站消息估算规模低于配置阈值时避免丢弃整轮历史；超过阈值时才应用 microcompact 与/或消息保尾等加重策略。
+系统 SHALL 在出站消息估算规模低于配置阈值时避免丢弃整轮历史；超过阈值时才应用保尾等加重策略。
 
 #### Scenario: 低于阈值不丢轮次
 
@@ -41,20 +41,27 @@ Context Budget：在每轮调用模型前对出站消息做确定性裁剪（too
 #### Scenario: 超过阈值启用加重策略
 
 - **WHEN** 出站估算超过阈值且 compact 启用
-- **THEN** 系统先尝试 microcompact，必要时再应用保尾等策略，使出站规模回落
+- **THEN** 系统应用保尾等策略（及可选的 content-clear microcompact），使出站规模回落
 
 ### Requirement: microcompact
 
-系统 SHALL 能将较早轮次中、属于 COMPACTABLE 工具（Read、Write、Edit、Bash、Grep、Glob 及同类内置工具）的超长 `tool_result` 内容替换为短占位提示，且不破坏 `tool_use` / `tool_result` 配对。占位文案 SHALL 对齐 claude-code（如 `[Old tool result content cleared]`），并可附带 `file_path` 线索（自对应 `tool_use.input` 读取）。
+系统默认 SHALL NOT 在出站超阈值时将旧 `tool_result` 替换为 `[Old tool result content cleared]`（对齐 claude-code：legacy 出站 content-clear 路径已移除；压力由单条截断、保尾与 autocompact 承担）。
 
-#### Scenario: 旧 tool_result 被占位
+当显式启用 content-clear（如选项 `microContentClear` 或环境变量 `COMPACT_MICRO_CONTENT_CLEAR=1`）时，系统 SHALL 能将较早轮次中、属于 COMPACTABLE 工具的超长 `tool_result` 替换为短占位，且不破坏配对；占位文案 SHALL 为 `[Old tool result content cleared]`，并可附带 `file_path` 线索。
 
-- **WHEN** 历史中较早的 COMPACTABLE 工具 `tool_result` 超过配置长度且触发 microcompact
-- **THEN** 出站中该内容变为短英文占位（含可重新获取的提示），最近轮次的 tool_result 可保留全文（在配置的保留窗口内）
+#### Scenario: 默认不 content-clear
+
+- **WHEN** 出站超阈值且未显式启用 `microContentClear`
+- **THEN** 不将旧 tool_result 替换为 cleared 占位
+
+#### Scenario: 显式启用时旧 tool_result 被占位
+
+- **WHEN** 显式启用 content-clear，且历史中较早的 COMPACTABLE 工具 `tool_result` 超过配置长度
+- **THEN** 出站中该内容变为短英文占位，最近轮次的 tool_result 可保留全文（在配置的保留窗口内）
 
 #### Scenario: 非 COMPACTABLE 工具结果不 microcompact
 
-- **WHEN** `tool_result` 来自非 COMPACTABLE 工具（如 Echo）
+- **WHEN** `tool_result` 来自非 COMPACTABLE 工具（如 Echo）且启用 content-clear
 - **THEN** microcompact 不替换该条内容（仍可受单条硬截断约束）
 
 #### Scenario: 关闭 compact 时不做 microcompact

@@ -59,6 +59,22 @@ export type ToolUseContext = {
   depth?: number
   /** 测试可注入嵌套 query 的 deps（如 mock callModel） */
   queryDeps?: Partial<QueryDeps>
+  /**
+   * Read 去重状态（对齐 CC `readFileState`）。
+   * 同路径+同 offset/limit 且 mtime 未变时，Read 返回短 stub，不重发全文。
+   */
+  readFileState?: Map<string, ReadFileStateEntry>
+}
+
+/** Read 工具写入的文件快照（供去重）；Edit/Write 可不写或写 fromRead: false */
+export type ReadFileStateEntry = {
+  /** 磁盘 mtimeMs（通常 floor） */
+  timestamp: number
+  /** 来自 Read 的 offset / limit（整文件均为 undefined） */
+  offset?: number
+  limit?: number
+  /** 仅 Read 写入为 true；Edit/Write 若更新缓存应设 false，避免误去重 */
+  fromRead?: boolean
 }
 
 /** 只读工具数组，由 getTools() 等工厂函数提供 */

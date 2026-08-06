@@ -336,6 +336,27 @@ describe('compactMessages microcompact', () => {
     return messages
   }
 
+  test('default (CC-aligned) does not content-clear over threshold', () => {
+    const messages = longHistory()
+    const out = compactMessages(messages, {
+      maxOutboundChars: 0,
+      microKeepRecent: 2,
+      microMinChars: 100,
+      maxToolResultChars: 50_000,
+      maxMessages: 100,
+    })
+    const results = out.flatMap(m =>
+      m.type === 'user'
+        ? m.content.filter(b => b.type === 'tool_result')
+        : [],
+    )
+    for (const r of results) {
+      if (r.type !== 'tool_result') continue
+      expect(r.content).not.toContain(MICROCOMPACT_NOTE)
+      expect(r.content).toContain('BODY')
+    }
+  })
+
   test('replaces older oversized tool_results with placeholder and keeps recent window', () => {
     const messages = longHistory()
     const out = compactMessages(messages, {
@@ -344,6 +365,7 @@ describe('compactMessages microcompact', () => {
       microMinChars: 100,
       maxToolResultChars: 50_000,
       maxMessages: 100,
+      microContentClear: true,
     })
 
     const results = out.flatMap(m =>
@@ -373,6 +395,7 @@ describe('compactMessages microcompact', () => {
       microMinChars: 100,
       maxToolResultChars: 50_000,
       maxMessages: 100,
+      microContentClear: true,
     })
 
     const toolUseIds = new Set(
@@ -396,6 +419,7 @@ describe('compactMessages microcompact', () => {
       maxOutboundChars: 0,
       microKeepRecent: 1,
       microMinChars: 100,
+      microContentClear: true,
     })
     expect(out).toBe(messages)
   })
@@ -408,6 +432,7 @@ describe('compactMessages microcompact', () => {
       microMinChars: 100,
       maxToolResultChars: 50_000,
       maxMessages: 8,
+      microContentClear: true,
     })
 
     expect(out.length).toBeLessThanOrEqual(8)
@@ -442,6 +467,7 @@ describe('compactMessages microcompact', () => {
       microMinChars: 100,
       maxToolResultChars: 50_000,
       maxMessages: 100,
+      microContentClear: true,
     })
 
     const micro = lines.find(l => l.includes('compact.micro'))
@@ -472,6 +498,7 @@ describe('compactMessages microcompact', () => {
       microMinChars: 100,
       maxToolResultChars: 50_000,
       maxMessages: 100,
+      microContentClear: true,
     })
 
     const echoResult = out
@@ -492,6 +519,7 @@ describe('compactMessages microcompact', () => {
       microMinChars: 100,
       maxToolResultChars: 50_000,
       maxMessages: 8,
+      microContentClear: true,
     })
 
     expect(out.length).toBe(beforeLen)

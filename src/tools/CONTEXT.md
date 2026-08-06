@@ -76,6 +76,7 @@
 | **MAX_READ_BYTES** | 100 × 1024，超出返回工具错误 |
 | **resolvePathUnderCwd** | 解析路径并拒绝逃出 `cwd` 的穿越访问 |
 | **offset / limit** | 1-based 起始行与行数；输出 `LINE|content` |
+| **readFileState** | 会话 Map；同路径+同 range 且 mtime 未变 → `FILE_UNCHANGED_STUB`（对齐 CC） |
 
 ### Write 专用术语
 

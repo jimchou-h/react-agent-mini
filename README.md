@@ -25,7 +25,8 @@ bun install
 | `AUTOCOMPACT` | 否 | 开启 | 设为 `0` 关闭自动 LLM 摘要（`/compact` 仍可用） |
 | `AUTOCOMPACT_PERCENT` | 否 | `80` | 上下文占用达到该百分比时尝试自动摘要 |
 | `CONTEXT_WINDOW_TOKENS` | 否 | `128000` | 估算 ctx % 时的窗口大小 |
-| `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 确定性 microcompact / 保尾的出站字符阈值 |
+| `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 保尾等加重策略的出站字符阈值（默认不再做 content-clear microcompact） |
+| `COMPACT_MICRO_CONTENT_CLEAR` | 否 | 关 | 设为 `1` 恢复旧版「超阈值清旧 tool_result」 |
 | `HOOKS` | 否 | 开启 | 设为 `0` 跳过 `.agents/hooks.json` 中的生命周期 hooks |
 | `BRAVE_API_KEY` | WebSearch(Brave) | — | Brave Search API Key（亦接受 `BRAVE_SEARCH_API_KEY`） |
 | `TAVILY_API_KEY` | WebSearch(Tavily) | — | [Tavily](https://tavily.com/) Search API Key |

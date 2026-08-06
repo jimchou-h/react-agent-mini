@@ -2,7 +2,20 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ReadTool, MAX_READ_BYTES, resolvePathUnderCwd } from '../ReadTool.js'
+import {
+  FILE_UNCHANGED_STUB,
+  MAX_READ_BYTES,
+  ReadTool,
+  resolvePathUnderCwd,
+} from '../ReadTool.js'
+import type { ReadFileStateEntry } from '../../Tool.js'
+
+function ctx(state?: Map<string, ReadFileStateEntry>) {
+  return {
+    tools: [ReadTool],
+    readFileState: state ?? new Map(),
+  }
+}
 
 describe('resolvePathUnderCwd', () => {
   let testDir: string
@@ -49,7 +62,7 @@ describe('ReadTool', () => {
 
     const result = await ReadTool.call(
       { file_path: 'sample.txt' },
-      { tools: [ReadTool] },
+      ctx(),
     )
 
     expect(result.data).toBe('1\thello read')
@@ -60,7 +73,7 @@ describe('ReadTool', () => {
 
     const result = await ReadTool.call(
       { file_path: 'lines.txt', offset: 2, limit: 2 },
-      { tools: [ReadTool] },
+      ctx(),
     )
 
     expect(result.data).toBe('2\ttwo\n3\tthree')
@@ -71,7 +84,7 @@ describe('ReadTool', () => {
 
     const result = await ReadTool.call(
       { file_path: 'lines.txt', offset: 0, limit: 1 },
-      { tools: [ReadTool] },
+      ctx(),
     )
 
     expect(result.data).toBe('1\tone')
@@ -105,5 +118,28 @@ describe('ReadTool', () => {
   test('is read-only and concurrency-safe', () => {
     expect(ReadTool.isReadOnly({ file_path: 'a.txt' })).toBe(true)
     expect(ReadTool.isConcurrencySafe({ file_path: 'a.txt' })).toBe(true)
+  })
+
+  test('dedups identical Read when mtime unchanged (CC readFileState)', async () => {
+    await writeFile('same.txt', 'alpha', 'utf-8')
+    const state = new Map<string, ReadFileStateEntry>()
+    const first = await ReadTool.call({ file_path: 'same.txt' }, ctx(state))
+    expect(first.data).toBe('1\talpha')
+
+    const second = await ReadTool.call({ file_path: 'same.txt' }, ctx(state))
+    expect(second.data).toBe(FILE_UNCHANGED_STUB)
+  })
+
+  test('re-reads when file content changes on disk', async () => {
+    await writeFile('mut.txt', 'v1', 'utf-8')
+    const state = new Map<string, ReadFileStateEntry>()
+    await ReadTool.call({ file_path: 'mut.txt' }, ctx(state))
+
+    // ensure mtime advances on Windows
+    await new Promise(r => setTimeout(r, 20))
+    await writeFile('mut.txt', 'v2', 'utf-8')
+
+    const again = await ReadTool.call({ file_path: 'mut.txt' }, ctx(state))
+    expect(again.data).toBe('1\tv2')
   })
 })

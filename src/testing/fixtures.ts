@@ -20,5 +20,7 @@ export function createMinimalToolContext(
     skills,
     // 测试默认禁用磁盘 hooks；CLI 须剥掉该字段才能加载 `.agents/hooks.json`
     hooksConfig: null,
+    // 会话级 Read 去重（对齐 CC readFileState）
+    readFileState: new Map(),
   }
 }

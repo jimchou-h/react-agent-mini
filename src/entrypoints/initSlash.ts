@@ -1,12 +1,15 @@
 /**
- * `/init` 引导 prompt（对齐 CC 精简版，无 AskUserQuestion / Ink）
+ * `/init` 引导 prompt
+ *
+ * 正文对齐 Claude Code `src/commands/init.ts` 的 OLD_INIT_PROMPT
+ *（NEW_INIT 依赖 AskUserQuestion / 子代理 / skills·hooks，属非目标）。
+ * 仅将目标文件名按本仓库策略替换为 AGENTS.md 或 CLAUDE.md。
  */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 export type InitTargetHint = {
-  /** 仓库根（通常为 process.cwd()）探测用；测试可注入 */
   hasAgentsMd?: boolean
   hasClaudeMd?: boolean
 }
@@ -22,9 +25,8 @@ export function probeInitTargetHint(
 }
 
 /**
- * 根据已有上下文文件选择默认写入目标：
- * - 已有 CLAUDE.md（无论是否另有 AGENTS.md）→ 改进 CLAUDE.md
- * - 否则 → 创建/更新 AGENTS.md
+ * - 已有 CLAUDE.md → CLAUDE.md
+ * - 否则 → AGENTS.md（含仅有 AGENTS.md、或两者皆无）
  */
 export function resolveInitTargetFile(
   hint: InitTargetHint = {},
@@ -33,39 +35,45 @@ export function resolveInitTargetFile(
   return 'AGENTS.md'
 }
 
-/** 构造注入给模型的 init 引导正文 */
+/**
+ * CC OLD_INIT_PROMPT，仅替换目标文件名与文件头说明；可选追加用户 args。
+ */
 export function buildInitPrompt(
   args: string = '',
   hint: InitTargetHint = {},
 ): string {
   const target = resolveInitTargetFile(hint)
+  const headerNote =
+    target === 'CLAUDE.md'
+      ? 'This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.'
+      : 'This file provides guidance to coding agents when working with code in this repository.'
+
+  // 对齐 CC OLD_INIT_PROMPT（见 claude-code src/commands/init.ts）
+  let text = `Please analyze this codebase and create a ${target} file, which will be given to future instances of coding agents to operate in this repository.
+
+What to add:
+1. Commands that will be commonly used, such as how to build, lint, and run tests. Include the necessary commands to develop in this codebase, such as how to run a single test.
+2. High-level code architecture and structure so that future instances can be productive more quickly. Focus on the "big picture" architecture that requires reading multiple files to understand.
+
+Usage notes:
+- If there's already a ${target}, suggest improvements to it.
+- When you make the initial ${target}, do not repeat yourself and do not include obvious instructions like "Provide helpful error messages to users", "Write unit tests for all new utilities", "Never include sensitive information (API keys, tokens) in code or commits".
+- Avoid listing every component or file structure that can be easily discovered.
+- Don't include generic development practices.
+- If there are Cursor rules (in .cursor/rules/ or .cursorrules) or Copilot rules (in .github/copilot-instructions.md), make sure to include the important parts.
+- If there is a README.md, make sure to include the important parts.
+- Do not make up information such as "Common Development Tasks", "Tips for Development", "Support and Documentation" unless this is expressly included in other files that you read.
+- Be sure to prefix the file with the following text:
+
+\`\`\`
+# ${target}
+
+${headerNote}
+\`\`\``
+
   const extra = args.trim()
-  const userNote = extra
-    ? `\n\nAdditional user notes:\n${extra}\n`
-    : ''
-
-  return `Please analyze this codebase and create or update a project context file for future agent sessions.
-
-## Target file
-
-- Preferred file for this run: **${target}**
-- Rule: if \`CLAUDE.md\` already exists, improve it; otherwise create/update \`AGENTS.md\` (default when neither exists).
-- Do not invent a second parallel context file unless the user explicitly asks.
-- If the target already exists, improve it — do not blindly overwrite with generic filler.
-
-## What to add
-
-1. Commands commonly used to build, lint, typecheck, and test (including how to run a single test when non-obvious).
-2. High-level architecture that requires reading multiple files to understand — the "big picture" only.
-
-## Usage notes
-
-- Keep the file concise. Only include what an agent would get wrong without it.
-- Do not repeat yourself. Do not include obvious instructions ("write helpful errors", "never commit secrets", etc.).
-- Avoid listing every file or component that is easy to discover with Glob/Grep.
-- Do not invent sections like "Tips for Development" or "Support" unless they appear in project docs you actually read.
-- If README, Cursor rules (\`.cursor/rules\`, \`.cursorrules\`), or Copilot instructions exist, fold in only the important non-obvious parts.
-- Prefer Edit for existing files; Write only when creating a new file. Respect permission prompts.
-${userNote}
-Explore with Read/Glob/Grep as needed, then write the file.`
+  if (extra) {
+    text += `\n\nAdditional user notes:\n${extra}`
+  }
+  return text
 }

@@ -33,13 +33,16 @@
   - 命名
   - 责任边界
   - 调用顺序
+  - **prompt / 协议原文**（先读 CC 源码再动手；默认照搬，禁止先写「自创精简版」）
   - 可测试 seam
   - fail-soft / fail-closed 的放置位置
 - 暂不硬对齐：
   - 大仓库级目录颗粒度
   - 为未来能力预埋的大量抽象
   - 多产品、多人协作、历史兼容层
+  - Non-Goals 已写明砍掉的平台能力（Ink、AskUserQuestion 等）
 
+详见 `.cursor/rules/align-claude-code.mdc`。
 ## 演进阈值
 
 - 单文件开始同时承担类型、业务、格式化、IO、错误策略时，应考虑拆分。

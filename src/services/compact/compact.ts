@@ -19,7 +19,7 @@ import { trace } from '../../utils/trace.js'
 /** 追加在被截断 tool_result 末尾的提示 */
 export const TRUNCATION_NOTE = '\n…[tool_result 已截断（compact）]'
 
-/** microcompact 占位正文 — 对齐 claude-code */
+/** microcompact 占位正文 — 对齐 claude-code（仅显式开启 content-clear 时使用） */
 export const MICROCOMPACT_NOTE = '[Old tool result content cleared]'
 
 /** 可参与 microcompact 的内置工具 */
@@ -40,8 +40,11 @@ export function isCompactableToolName(name: string): boolean {
 /** 默认出站字符阈值：低于此值不做 micro / 保尾 */
 export const DEFAULT_MAX_OUTBOUND_CHARS = 80_000
 
-/** 默认保留最近若干条完整 tool_result（更早的才可被占位） */
-export const DEFAULT_MICRO_KEEP_RECENT = 4
+/**
+ * 保留最近若干条完整 tool_result（仅 microContentClear 开启时）。
+ * 对齐 CC time-based / cached MC 的 keepRecent=5。
+ */
+export const DEFAULT_MICRO_KEEP_RECENT = 5
 
 /** tool_result 超过此长度才参与 microcompact 占位 */
 export const DEFAULT_MICRO_MIN_CHARS = 500
@@ -63,6 +66,12 @@ export type CompactOptions = {
   microKeepRecent?: number
   /** 仅当 tool_result 长度 > 此值才可被占位；缺省 `DEFAULT_MICRO_MIN_CHARS` */
   microMinChars?: number
+  /**
+   * 是否启用「出站超阈值 → 旧 tool_result content-clear」。
+   * 默认 **关闭**（对齐 CC：legacy microcompact 已移除，压力交给 budget / 保尾 / autocompact）。
+   * 设 `true` 或环境变量 `COMPACT_MICRO_CONTENT_CLEAR=1` 可恢复旧行为。
+   */
+  microContentClear?: boolean
 }
 
 const DEFAULT_MAX_TOOL_RESULT_CHARS = 4000
@@ -142,13 +151,16 @@ export function applyToolResultBudget(
 /**
  * ② microcompact — 对齐 claude-code `deps.microcompact`
  *
- * 低于阈值：原样返回。超过阈值：较早超长 tool_result → 短占位，保留最近窗口。
+ * CC 已删除「按出站规模 content-clear」的 legacy 路径；外部用户默认靠
+ * budget / autocompact /（可选）time-based·cached MC。本函数默认 **no-op**。
+ * 仅当 `microContentClear` / `COMPACT_MICRO_CONTENT_CLEAR=1` 时恢复旧占位行为。
  */
 export function microcompactMessages(
   messages: Message[],
   options?: CompactOptions,
 ): Message[] {
   if (!isCompactEnabled(options)) return messages
+  if (!isMicroContentClearEnabled(options)) return messages
 
   const maxOutboundChars = resolveMaxOutboundChars(options)
   const estimated = estimateOutboundChars(messages)
@@ -213,6 +225,12 @@ export function applyRetainTailIfNeeded(
 
 function isCompactEnabled(options?: CompactOptions): boolean {
   return options?.enabled ?? process.env.COMPACT !== '0'
+}
+
+/** 是否启用 legacy content-clear microcompact（默认关，对齐 CC） */
+export function isMicroContentClearEnabled(options?: CompactOptions): boolean {
+  if (options?.microContentClear != null) return options.microContentClear
+  return process.env.COMPACT_MICRO_CONTENT_CLEAR === '1'
 }
 
 function syncMicrocompact(

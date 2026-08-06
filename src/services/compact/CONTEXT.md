@@ -8,7 +8,7 @@
 |------|------|
 | **compactMessages** | 纯函数：出站副本裁剪；无变更时返回原数组 |
 | **出站-only** | 确定性层只裁发给模型的副本，默认不写回 `QueryEngine.messages` |
-| **microcompact** | 旧的可压缩 tool_result 换成短占位 |
+| **microcompact** | 默认 **no-op**（对齐 CC legacy content-clear 已移除）；`COMPACT_MICRO_CONTENT_CLEAR=1` 可恢复旧占位 |
 | **autocompact** | 超阈值时侧路 LLM 摘要，**写回**会话（boundary + summary + 尾部） |
 | **compact boundary** | meta 用户消息 `[compact boundary]`，之后为活历史 |
 | **`/compact`** | REPL 手动触发与 autocompact 相同的写回路径 |

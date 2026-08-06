@@ -25,20 +25,26 @@ describe('resolveInitTargetFile', () => {
 })
 
 describe('buildInitPrompt', () => {
-  test('mentions AGENTS.md by default and improve-not-overwrite', () => {
+  test('matches CC OLD_INIT shape with AGENTS.md default', () => {
     const p = buildInitPrompt()
-    expect(p).toContain('AGENTS.md')
-    expect(p).toContain('improve')
+    expect(p).toContain('create a AGENTS.md file')
+    expect(p).toContain('What to add:')
+    expect(p).toContain('Usage notes:')
+    expect(p).toContain('suggest improvements to it')
+    expect(p).toContain('# AGENTS.md')
+    expect(p).not.toContain('Explore with Read/Glob/Grep')
   })
 
-  test('mentions CLAUDE.md when hint says it exists', () => {
+  test('uses CLAUDE.md when hint says it exists', () => {
     const p = buildInitPrompt('', { hasClaudeMd: true })
-    expect(p).toContain('**CLAUDE.md**')
+    expect(p).toContain('create a CLAUDE.md file')
+    expect(p).toContain('# CLAUDE.md')
+    expect(p).toContain('claude.ai/code')
   })
 
   test('appends user args', () => {
     const p = buildInitPrompt('focus on test commands')
     expect(p).toContain('focus on test commands')
-    expect(p).toContain('Additional user notes')
+    expect(p).toContain('Additional user notes:')
   })
 })

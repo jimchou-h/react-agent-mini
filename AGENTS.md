@@ -16,4 +16,8 @@ Multi-context layout — `CONTEXT-MAP.md` at the repo root points to per-context
 
 ### Architecture alignment
 
-Future development in this repo should follow `docs/architecture-alignment.md`: align with `claude-code` on concepts and boundaries, but keep mini-repo pragmatism and avoid premature over-splitting.
+Future development in this repo should follow `docs/architecture-alignment.md` and `.cursor/rules/align-claude-code.mdc`:
+
+- Align with `claude-code` on concepts, boundaries, **prompts, and protocols** — **read CC source first, copy by default**; only omit what Non-Goals explicitly cut (no Ink, etc.).
+- Keep mini-repo pragmatism on **repo size / platform**, not by inventing rewritten semantics or homemade guide prompts.
+- Avoid premature over-splitting of directories/files.
