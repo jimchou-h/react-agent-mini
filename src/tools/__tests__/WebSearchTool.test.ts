@@ -5,7 +5,11 @@ import { WebSearchTool, WEB_SEARCH_TOOL_NAME } from '../WebSearchTool.js'
 import { createBraveWebSearchAdapter } from '../../services/webSearch/braveAdapter.js'
 import { createHangingWebSearchAdapter } from '../../services/webSearch/hangingAdapter.js'
 import { createMockWebSearchAdapter } from '../../services/webSearch/mockAdapter.js'
-import { setWebSearchAdapterForTests } from '../../services/webSearch/resolveAdapter.js'
+import {
+  resolveWebSearchAdapterKey,
+  setWebSearchAdapterForTests,
+} from '../../services/webSearch/resolveAdapter.js'
+import { createTavilyWebSearchAdapter } from '../../services/webSearch/tavilyAdapter.js'
 import { WebSearchConfigError } from '../../services/webSearch/types.js'
 
 afterEach(() => {
@@ -54,6 +58,31 @@ describe('WebSearchTool', () => {
   test('brave adapter throws WebSearchConfigError without key', async () => {
     const adapter = createBraveWebSearchAdapter({})
     await expect(adapter.search('q')).rejects.toBeInstanceOf(WebSearchConfigError)
+  })
+
+  test('missing Tavily API key returns is_error', async () => {
+    setWebSearchAdapterForTests(createTavilyWebSearchAdapter({}))
+
+    const result = await WebSearchTool.call(
+      { query: 'anything' },
+      createMinimalToolContext(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(String(result.data)).toMatch(/TAVILY_API_KEY/)
+  })
+
+  test('resolveWebSearchAdapterKey prefers explicit and tavily-only', () => {
+    expect(resolveWebSearchAdapterKey({ WEB_SEARCH_ADAPTER: 'tavily' })).toBe(
+      'tavily',
+    )
+    expect(resolveWebSearchAdapterKey({ WEB_SEARCH_ADAPTER: 'brave' })).toBe(
+      'brave',
+    )
+    expect(
+      resolveWebSearchAdapterKey({ TAVILY_API_KEY: 'tvly-x' }),
+    ).toBe('tavily')
+    expect(resolveWebSearchAdapterKey({})).toBe('brave')
   })
 
   test('aborts when signal aborted during search', async () => {

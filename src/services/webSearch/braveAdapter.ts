@@ -1,9 +1,10 @@
 /**
- * Brave Search API adapter（默认生产适配器）
+ * Brave Search API adapter
  *
  * env: BRAVE_API_KEY 或 BRAVE_SEARCH_API_KEY
  */
 
+import { filterHitsByDomains } from './filterDomains.js'
 import type { WebSearchAdapter, WebSearchHit, WebSearchOptions } from './types.js'
 import { WebSearchConfigError } from './types.js'
 
@@ -29,35 +30,6 @@ type BraveWebResult = {
 
 type BraveWebSearchResponse = {
   web?: { results?: BraveWebResult[] }
-}
-
-function filterByDomains(
-  hits: WebSearchHit[],
-  allowed?: string[],
-  blocked?: string[],
-): WebSearchHit[] {
-  let out = hits
-  if (allowed && allowed.length > 0) {
-    const allow = new Set(allowed.map(d => d.toLowerCase()))
-    out = out.filter(h => {
-      try {
-        return allow.has(new URL(h.url).hostname.toLowerCase())
-      } catch {
-        return false
-      }
-    })
-  }
-  if (blocked && blocked.length > 0) {
-    const block = new Set(blocked.map(d => d.toLowerCase()))
-    out = out.filter(h => {
-      try {
-        return !block.has(new URL(h.url).hostname.toLowerCase())
-      } catch {
-        return false
-      }
-    })
-  }
-  return out
 }
 
 export function createBraveWebSearchAdapter(
@@ -114,7 +86,7 @@ export function createBraveWebSearchAdapter(
           snippet: r.description,
         }))
 
-      return filterByDomains(
+      return filterHitsByDomains(
         hits,
         options.allowedDomains,
         options.blockedDomains,

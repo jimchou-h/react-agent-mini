@@ -27,7 +27,10 @@ bun install
 | `CONTEXT_WINDOW_TOKENS` | 否 | `128000` | 估算 ctx % 时的窗口大小 |
 | `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 确定性 microcompact / 保尾的出站字符阈值 |
 | `HOOKS` | 否 | 开启 | 设为 `0` 跳过 `.agents/hooks.json` 中的生命周期 hooks |
-| `BRAVE_API_KEY` | WebSearch 时是 | — | Brave Search API Key（亦接受 `BRAVE_SEARCH_API_KEY`） |
+| `BRAVE_API_KEY` | WebSearch(Brave) | — | Brave Search API Key（亦接受 `BRAVE_SEARCH_API_KEY`） |
+| `TAVILY_API_KEY` | WebSearch(Tavily) | — | [Tavily](https://tavily.com/) Search API Key |
+| `WEB_SEARCH_ADAPTER` | 否 | 见下 | `brave` 或 `tavily`；未设时：仅有 Tavily Key → tavily，否则 brave |
+| `TAVILY_ENDPOINT_URL` | 否 | `https://api.tavily.com/search` | 自定义 Tavily 端点（可省略尾部 `/search`） |
 
 ### WebSearch / WebFetch
 
@@ -35,12 +38,25 @@ bun install
 
 | 工具 | 入参 | 说明 |
 |------|------|------|
-| **WebSearch** | `query`（必填）；可选 `allowed_domains` / `blocked_domains` / `num_results` | 默认走 Brave Search；返回 title / url / snippet |
+| **WebSearch** | `query`（必填）；可选 `allowed_domains` / `blocked_domains` / `num_results` | Brave 或 Tavily；返回 title / url / snippet |
 | **WebFetch** | `url` | GET http(s)；HTML 去标签；默认约 30s / 512KB 上限 |
 
-- 缺 `BRAVE_API_KEY` 时 WebSearch 返回错误 tool_result（不抛崩进程）
+- 缺对应 API Key 时 WebSearch 返回错误 tool_result（不抛崩进程）
 - WebFetch **拒绝** `file:`、localhost、私网与链路本地 IP（基础 SSRF 护栏）
 - 二者均尊重 turn `AbortSignal`（Ctrl+C 可中止进行中的搜索/拉取）
+
+**配置 Key（任选其一）：** 写进项目根 `.env`（Bun 会自动加载），或启动前设置环境变量：
+
+```powershell
+# 推荐：Tavily
+$env:TAVILY_API_KEY = "tvly-..."
+# 可选强制后端
+$env:WEB_SEARCH_ADAPTER = "tavily"
+
+# 或 Brave
+$env:BRAVE_API_KEY = "..."
+$env:WEB_SEARCH_ADAPTER = "brave"
+```
 
 **不做：** Anthropic 服务端 search、多 provider 配置 UI、JS 渲染页、PDF/二进制正文。
 
