@@ -1,10 +1,4 @@
-# slash-init Specification
-
-## Purpose
-
-REPL `/init`：注入对齐 Claude Code `OLD_INIT_PROMPT` 的引导材料并 `runTurn`，生成或改进项目上下文文件（`AGENTS.md` / `CLAUDE.md`）。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: /init slash 命令
 
