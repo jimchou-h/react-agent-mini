@@ -39,4 +39,30 @@ describe('installTurnInterrupt', () => {
     expect(idle).toBe(true)
     handle.dispose()
   })
+
+  test('readline SIGINT alone triggers abort (process not required)', () => {
+    const rl = new EventEmitter() as EventEmitter & {
+      on(event: 'SIGINT', listener: () => void): EventEmitter
+      off(event: 'SIGINT', listener: () => void): EventEmitter
+    }
+    let aborted = false
+    let idle = false
+    const handle = installTurnInterrupt({
+      abortCurrentTurn: () => {
+        aborted = true
+        return true
+      },
+      onIdleInterrupt: () => {
+        idle = true
+      },
+      // 不往 process 挂；模拟仅 rl 收到 Ctrl+C
+      target: new EventEmitter(),
+      readline: rl,
+    })
+
+    rl.emit('SIGINT')
+    expect(aborted).toBe(true)
+    expect(idle).toBe(false)
+    handle.dispose()
+  })
 })

@@ -70,6 +70,8 @@ REPL 运行中：
 
 程序化宿主可调用 `QueryEngine.abortCurrentTurn(reason?)`。`query` 会把 `abortController.signal` 传给 `callModel`。
 
+实现上会同时监听 `process` 与 readline 的 `SIGINT`（仅挂 process 时，Ctrl+C 常被 readline 吃掉表现为「无反应」）。
+
 ### Write / Edit 权限（简要）
 
 | 模式 | 行为 |

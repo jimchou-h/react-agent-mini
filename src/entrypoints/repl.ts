@@ -338,19 +338,21 @@ export async function runRepl(
   }
 
   const bindInterrupt = (
-    rl: { close: () => void },
+    rl: { close: () => void } & import('./turnInterrupt.js').TurnInterruptReadline,
   ): ReturnType<typeof installTurnInterrupt> =>
     installTurnInterrupt({
       abortCurrentTurn: () => {
-        const ok = engine.abortCurrentTurn('interrupt')
-        if (ok) {
+        if (engine.abortCurrentTurn('interrupt')) {
           console.log('\n已中断当前回合')
+          return true
         }
-        return ok
+        // abort 后 runTurn finally 前仍算 in progress，避免二次 SIGINT 误关 REPL
+        return engine.isTurnInProgress
       },
       onIdleInterrupt: () => {
         rl.close()
       },
+      readline: rl,
     })
 
   if (existingRl) {
