@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Bash / Skill / Write / Edit / Agent 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
+定义内置工具契约、注册与执行策略，以及 Echo / Read / Grep / Glob / Bash / Skill / Write / Edit / Agent / WebSearch / WebFetch 等工具的对外行为；会话工具表可合并 MCP 等外部来源。
 ## Requirements
 ### Requirement: Tool 契约
 
@@ -147,6 +147,24 @@
 
 - **WHEN** 为嵌套 Agent 运行组装工具表
 - **THEN** 列表不包含 `Agent`
+
+### Requirement: WebSearch 注册
+
+`getTools()` SHALL 包含名为 `WebSearch` 的工具。
+
+#### Scenario: 工具表含 WebSearch
+
+- **WHEN** 调用顶层 `getTools()`
+- **THEN** 列表存在 `name === 'WebSearch'`
+
+### Requirement: WebFetch 注册
+
+`getTools()` SHALL 包含名为 `WebFetch` 的工具。
+
+#### Scenario: 工具表含 WebFetch
+
+- **WHEN** 调用顶层 `getTools()`
+- **THEN** 列表存在 `name === 'WebFetch'`
 
 ### Requirement: 动态工具合并
 
