@@ -11,10 +11,19 @@ export type TurnInterruptReadline = {
 }
 
 export type TurnInterruptOptions = {
-  /** 尝试 abort 当前轮；返回 true 表示已处理（有进行中 turn 或正在收尾） */
+  /** 尝试 abort 当前轮；返回 true 表示本次 SIGINT 已用于中断当前 turn */
   abortCurrentTurn: () => boolean
-  /** 无进行中 turn 时的行为（通常结束 REPL） */
+  /** 当前是否仍有 turn 在执行/收尾；用于判断二次 Ctrl+C 是否应强退 */
+  isTurnInProgress?: () => boolean
+  /** 空闲态第一次 Ctrl+C；默认无动作（对齐 CC idle 双击退出） */
+  onIdleFirstInterrupt?: () => void
+  /** 无进行中 turn 且在窗口内第二次 Ctrl+C 的行为（通常结束 REPL） */
   onIdleInterrupt: () => void
+  /** 当前 turn 已经收到过一次 Ctrl+C，第二次时的行为（通常强退） */
+  onForceInterrupt?: () => void
+  /** idle 双击退出窗口，默认 1000ms */
+  idleDoublePressWindowMs?: number
+  now?: () => number
   /** 默认可监听 SIGINT 的目标（测试可注入 EventEmitter） */
   target?: NodeJS.EventEmitter
   event?: string
@@ -35,10 +44,36 @@ export function installTurnInterrupt(
 ): TurnInterruptHandle {
   const target = options.target ?? process
   const event = options.event ?? 'SIGINT'
+  const now = options.now ?? Date.now
+  const idleWindowMs = options.idleDoublePressWindowMs ?? 1000
+  let abortedActiveTurn = false
+  let lastIdleInterruptAt = 0
   const handler = () => {
-    if (!options.abortCurrentTurn()) {
-      options.onIdleInterrupt()
+    if (options.abortCurrentTurn()) {
+      abortedActiveTurn = true
+      lastIdleInterruptAt = 0
+      return
     }
+
+    const stillRunning = options.isTurnInProgress?.() ?? false
+    if (abortedActiveTurn && stillRunning) {
+      options.onForceInterrupt?.()
+      return
+    }
+
+    abortedActiveTurn = false
+    const ts = now()
+    if (
+      lastIdleInterruptAt > 0 &&
+      ts - lastIdleInterruptAt <= idleWindowMs
+    ) {
+      lastIdleInterruptAt = 0
+      options.onIdleInterrupt()
+      return
+    }
+
+    lastIdleInterruptAt = ts
+    options.onIdleFirstInterrupt?.()
   }
   target.on(event, handler)
   options.readline?.on('SIGINT', handler)

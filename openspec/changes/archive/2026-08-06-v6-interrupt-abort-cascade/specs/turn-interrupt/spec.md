@@ -9,10 +9,20 @@
 - **WHEN** REPL 正在执行一轮 `runTurn` / `query`，用户触发第一次 interrupt
 - **THEN** 当前轮的 `abortController` 进入 aborted，本轮以中止结束，进程仍存活且可继续提示输入
 
-#### Scenario: 无进行中 turn 时 interrupt
+#### Scenario: 无进行中 turn 时第一次 Ctrl+C 不退出
 
-- **WHEN** REPL 空闲（无进行中 turn），用户触发 interrupt
-- **THEN** 进程按入口约定退出（或等价结束 REPL），SHALL NOT 误 abort 下一轮尚未开始的 turn
+- **WHEN** REPL 空闲（无进行中 turn），用户第一次触发 interrupt
+- **THEN** 进程 SHALL NOT 立即退出，且 SHALL NOT 误 abort 下一轮尚未开始的 turn
+
+#### Scenario: 空闲窗口内第二次 Ctrl+C 退出
+
+- **WHEN** REPL 空闲，且用户在入口定义的短时间窗口内第二次触发 interrupt
+- **THEN** 进程按入口约定退出（或等价结束 REPL）
+
+#### Scenario: turn 收尾中第二次 Ctrl+C 强退
+
+- **WHEN** 第一次 interrupt 已使当前 turn 进入 aborted，但 REPL 仍在收尾，用户再次触发 interrupt
+- **THEN** 入口 SHALL 直接结束 REPL（或等价强制退出），而非继续等待本轮自然收尾
 
 ### Requirement: 程序化 abort 与 interrupt 等价
 

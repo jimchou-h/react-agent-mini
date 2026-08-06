@@ -7,7 +7,7 @@
 - REPL / CLI 在 Agent 运行中将第一次 interrupt（SIGINT 或等价）接到当前轮的 `AbortController.abort()`，**不**立即退出进程；本轮结束后可继续输入。
 - `query` 调用 `callModel` 时传入 `abortController.signal`，使进行中的模型请求可被取消。
 - 明确同步 Agent：父轮 abort 后子会话 MUST 停止（沿用现有独立 child controller + 级联；不改为共享同一 controller，除非实现证明等价）。
-- 文档说明：第一次 interrupt 中断当前 turn；再次 interrupt / 空闲时的行为保持可预期（至少文档化）。
+- 文档说明：第一次 interrupt 中断当前 turn；空闲时第一次不退出、短时间内第二次退出；若 turn 已 abort 但仍在收尾，第二次 interrupt 可强制退出。
 
 ## Capabilities
 
@@ -26,4 +26,4 @@
 - `src/query.ts`：`callModel` 增加 `signal`。
 - `src/services/api/client.ts`：已支持 `signal`，需确保被接通。
 - `src/utils/subagent.ts` / `AgentTool`：验证级联；必要时补测试与文档。
-- 无 **BREAKING** API；行为变化：Ctrl+C 从「杀进程」变为「先 abort 本轮」（空闲时二次退出策略在 design 中定）。
+- 无 **BREAKING** API；行为变化：Ctrl+C 从「杀进程」变为「运行中先 abort 本轮；空闲时双击退出」。

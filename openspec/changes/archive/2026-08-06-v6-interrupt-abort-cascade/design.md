@@ -20,7 +20,7 @@
 **Non-Goals:**
 
 - 异步 / 后台 Agent、任务队列（本仓库无）。
-- 完整复刻 CC 的 Escape 键、双 Ctrl+C 精细 UX（可做最小「空闲再 interrupt 则退出」）。
+- 完整复刻 CC 的 Escape 键与更复杂的取消/恢复 UX；本 change 仅覆盖最小语义：空闲首次 Ctrl+C 无动作、窗口内第二次退出；运行中首次 abort、收尾中第二次强退。
 - 将 sync Agent 改为共享同一 `AbortController` 引用（级联已足够；不强制改成 CC 共享模型）。
 - Bash 子进程的细粒度 SIGINT 转发（可选后续；本 change 以 query/Agent/API 为主）。
 
@@ -28,9 +28,9 @@
 
 ### D1：SIGINT 接线位置 — REPL / CLI 持有「当前轮 abort」句柄
 
-- **选择**：`QueryEngine` 暴露只读 `getCurrentAbortController()`（或 `abortCurrentTurn(reason)`），`runTurn` 开始时登记、结束时清空；`runRepl` / `cli` 在 turn 进行中 `process.on('SIGINT', …)` 调用 abort。
+- **选择**：`QueryEngine` 暴露只读 `getCurrentAbortController()`（或 `abortCurrentTurn(reason)`），`runTurn` 开始时登记、结束时清空；`runRepl` / `cli` 监听 `readline` 与 `process` 的 SIGINT，在 turn 进行中第一次调用 abort。
 - **替代**：在 `query` 内部监听 SIGINT → 拒绝（query 不应绑进程信号；headless/测试难测）。
-- **空闲行为**：无进行中 turn 时，SIGINT 退出进程（或第二次确认退出）；文档写清。
+- **空闲行为**：无进行中 turn 时，第一次 SIGINT 无动作；在短窗口内第二次 SIGINT 退出进程。若 turn 已 abort 但仍在收尾，第二次 SIGINT 直接强退。
 
 ### D2：`callModel` 接通 `signal`
 
@@ -50,7 +50,7 @@
 
 ## Risks / Trade-offs
 
-- [Windows Ctrl+C / readline 抢信号] → Mitigation：用 `rl.on('SIGINT')` 与/或 `process.on('SIGINT')` 实测；单测用程序化 `abort()` 覆盖核心路径，SIGINT 用薄集成或 mock。
+- [Windows Ctrl+C / readline 抢信号] → Mitigation：同时监听 `rl.on('SIGINT')` 与 `process.on('SIGINT')`；单测覆盖 readline-only 与 idle 双击窗口。
 - [abort 时 API 抛错冒泡] → Mitigation：query/callModel 消费路径捕获 AbortError，返回 `aborted`。
 - [用户期望第二次 Ctrl+C 立刻杀进程] → Mitigation：turn 进行中 abort 后若仍卡住，允许第二次 SIGINT `process.exit`；design 实现时写清。
 
@@ -62,4 +62,4 @@
 
 ## Open Questions
 
-- 无阻塞项。空闲 SIGINT：默认「直接退出」即可，若实现时 readline 行为特殊再微调。
+- 无阻塞项。idle 双击窗口时长维持实现默认值；如后续需要可再暴露配置。

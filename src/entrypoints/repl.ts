@@ -346,11 +346,18 @@ export async function runRepl(
           console.log('\n已中断当前回合')
           return true
         }
-        // abort 后 runTurn finally 前仍算 in progress，避免二次 SIGINT 误关 REPL
-        return engine.isTurnInProgress
+        return false
+      },
+      isTurnInProgress: () => engine.isTurnInProgress,
+      onForceInterrupt: () => {
+        console.log('\n强制退出...')
+        process.exit(130)
+      },
+      onIdleFirstInterrupt: () => {
+        // 对齐 CC：idle 第一次 Ctrl+C 不做事
       },
       onIdleInterrupt: () => {
-        rl.close()
+        process.exit(130)
       },
       readline: rl,
     })

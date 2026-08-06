@@ -14,7 +14,7 @@
 ## 2. QueryEngine / REPL interrupt
 
 - [x] 2.1 `QueryEngine` 暴露当前轮 abort（登记/清空 + `abortCurrentTurn` 或等价 API）
-- [x] 2.2 REPL/CLI：turn 进行中第一次 SIGINT → abort 当前轮；空闲 interrupt → 退出；补单测（程序化 abort 为主）
+- [x] 2.2 REPL/CLI：turn 进行中第一次 SIGINT → abort 当前轮；空闲第一次不退出、窗口内第二次退出；收尾中第二次可强退；补单测（程序化 abort 为主）
 
 ## 3. 同步 Agent 级联与文档
 

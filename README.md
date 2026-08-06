@@ -65,8 +65,8 @@ REPL 运行中：
 
 | 时机 | 行为 |
 |------|------|
-| **有进行中的 turn** | 第一次 Ctrl+C / SIGINT → `abortCurrentTurn`，中止当前 `query`（含流式模型请求与同步 `Agent` 子会话）；打印「已中断当前回合」，**会话可继续**输入 |
-| **空闲（无 turn）** | interrupt → 关闭 readline并结束 REPL |
+| **有进行中的 turn** | 第一次 Ctrl+C / SIGINT → `abortCurrentTurn`，中止当前 `query`（含流式模型请求与同步 `Agent` 子会话）；打印「已中断当前回合」，**会话可继续**输入；若仍未收尾，第二次可强制退出 |
+| **空闲（无 turn）** | 第一次 Ctrl+C 不动作；短时间内第二次 Ctrl+C 退出 |
 
 程序化宿主可调用 `QueryEngine.abortCurrentTurn(reason?)`。`query` 会把 `abortController.signal` 传给 `callModel`。
 
