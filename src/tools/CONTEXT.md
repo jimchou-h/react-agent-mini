@@ -98,11 +98,13 @@
 | 术语 | 说明 |
 |------|------|
 | **MAX_BASH_OUTPUT_CHARS** | 50000，合并输出超限后截断并附提示 |
-| **DEFAULT_BASH_TIMEOUT_MS** | 30000，缺省超时 |
-| **MAX_BASH_TIMEOUT_MS** | 120000，`timeout_ms` 上限 |
+| **DEFAULT_BASH_TIMEOUT_MS** | 120000，缺省超时 |
+| **MAX_BASH_TIMEOUT_MS** | 600000，`timeout` 上限 |
 | **超时中止** | 超时立即 resolve 并 `killTree`（Win 用 `taskkill /T /F`） |
-| **shell 选择** | Win: `ComSpec /d /s /c`；其余: `SHELL -c` |
+| **shell 选择** | Win: Git Bash（`bash.exe` + `-c`，见 `resolveBashExecutable`）；其余: `SHELL` 或 `/bin/bash` + `-c` |
+| **CLAUDE_CODE_GIT_BASH_PATH** | 可选，指向 `bash.exe`；找不到 Git Bash 时工具 `isError`，不回退 cmd |
 | **命令预览** | REPL 确认摘要与 CLI 状态行截断展示 `command` |
+| **语法** | 全平台按 Unix/bash 写命令（工具 description + system shell 信息行） |
 
 ### Grep / Glob 术语
 

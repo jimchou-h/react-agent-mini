@@ -3,12 +3,16 @@
  *
  * 捕获 stdout/stderr；支持 timeout（默认 120s）；输出超长截断；
  * 非零退出码以错误语义返回；超时尽力杀进程树（Windows 用 taskkill /T）。
- * 非只读 → 走 canUseTool 权限。
+ * Windows 上通过 Git Bash 执行（对齐 claude-code）；非只读 → 走 canUseTool 权限。
  */
 
 import { spawn } from 'node:child_process'
 import { z } from 'zod'
 import type { Tool } from '../Tool.js'
+import {
+  missingGitBashMessage,
+  resolveBashExecutable,
+} from '../utils/windowsGitBash.js'
 
 /** 尽力终止子进程树：Windows 用 taskkill /T，其余用 SIGKILL */
 function killTree(child: ReturnType<typeof spawn>): void {
@@ -62,21 +66,40 @@ type BashRun = {
   timedOut: boolean
 }
 
+type ResolveShell = () => string | null
+
+/** 测试可覆盖解析器（模拟缺 bash） */
+let resolveShellForTests: ResolveShell | undefined
+
+export function setResolveBashExecutableForTests(
+  fn: ResolveShell | undefined,
+): void {
+  resolveShellForTests = fn
+}
+
 /**
  * Bash 工具 — 在当前工作目录执行 shell 命令
  *
  * 行为：合并 stdout/stderr，超时中止，输出超限截断，非零退出标 isError。
- * 非只读、非并发安全；实际执行前由 canUseTool 做权限确认（见 #52）。
+ * Windows：Git Bash；其他：SHELL 或 /bin/bash。
  */
 export const BashTool: Tool<typeof bashInputSchema> = {
   name: 'Bash',
   description:
-    '在当前工作目录执行 shell 命令并返回合并的 stdout/stderr。支持超时；非零退出会标记为错误',
+    '在当前工作目录用 bash 执行 shell 命令并返回合并的 stdout/stderr。支持超时；非零退出会标记为错误。即使在 Windows 上也使用 Unix/bash 语法（正斜杠路径、/dev/null、&& 等），不要用 cmd 或 PowerShell 方言',
   inputSchema: bashInputSchema,
 
   async call(args) {
+    const shellPath = (resolveShellForTests ?? resolveBashExecutable)()
+    if (!shellPath) {
+      return {
+        data: missingGitBashMessage(),
+        isError: true,
+      }
+    }
+
     const timeout = clampTimeout(args.timeout ?? args.timeout_ms)
-    const run = await runCommand(args.command, timeout)
+    const run = await runCommand(shellPath, args.command, timeout)
 
     const merged = joinOutput(run.stdout, run.stderr)
     const { text, truncated } = truncateOutput(merged)
@@ -151,15 +174,13 @@ function appendNote(text: string, note: string, truncated: boolean): string {
   return parts.join('\n')
 }
 
-function runCommand(command: string, timeoutMs: number): Promise<BashRun> {
+function runCommand(
+  shell: string,
+  command: string,
+  timeoutMs: number,
+): Promise<BashRun> {
   return new Promise(resolve => {
-    const isWin = process.platform === 'win32'
-    const shell = isWin
-      ? process.env.ComSpec || 'cmd.exe'
-      : process.env.SHELL || '/bin/bash'
-    const shellArgs = isWin ? ['/d', '/s', '/c', command] : ['-c', command]
-
-    const child = spawn(shell, shellArgs, {
+    const child = spawn(shell, ['-c', command], {
       cwd: process.cwd(),
       windowsHide: true,
     })

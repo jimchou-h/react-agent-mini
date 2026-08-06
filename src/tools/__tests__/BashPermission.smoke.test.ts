@@ -64,20 +64,25 @@ describe('Bash permission smoke', () => {
     }
   })
 
-  test('REPL allow runs a harmless command', async () => {
-    const block = bashBlock('toolu_bash_allow')
-    const parent = createAssistantMessage([block])
+  // Git Bash 冷启动在 Windows 上可能较慢
+  test(
+    'REPL allow runs a harmless command',
+    async () => {
+      const block = bashBlock('toolu_bash_allow')
+      const parent = createAssistantMessage([block])
 
-    const update = await runToolUse(block, parent, {
-      ...createMinimalToolContext([BashTool]),
-      canUseTool: createReplCanUseTool(async () => 'y'),
-    })
+      const update = await runToolUse(block, parent, {
+        ...createMinimalToolContext([BashTool]),
+        canUseTool: createReplCanUseTool(async () => 'y'),
+      })
 
-    const result = update.message.content[0]
-    expect(result.type).toBe('tool_result')
-    if (result.type === 'tool_result') {
-      expect(result.is_error).toBeUndefined()
-      expect(result.content).toContain('permission-check')
-    }
-  })
+      const result = update.message.content[0]
+      expect(result.type).toBe('tool_result')
+      if (result.type === 'tool_result') {
+        expect(result.is_error).toBeUndefined()
+        expect(result.content).toContain('permission-check')
+      }
+    },
+    { timeout: 30_000 },
+  )
 })

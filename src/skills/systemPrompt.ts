@@ -18,6 +18,7 @@ import {
   type MemorySnapshot,
 } from '../services/memory/load.js'
 import { loadProjectContext } from '../utils/projectContext.js'
+import { getShellInfoLine } from '../utils/windowsGitBash.js'
 
 type SessionContextDeps = {
   loadProjectContext(cwd: string): Promise<string | undefined>
@@ -41,6 +42,7 @@ export function buildSystemPrompt(
   const parts: string[] = []
   if (projectContext) parts.push(projectContext)
   parts.push(formatMemoryPromptSection(cwd, memory))
+  parts.push(getShellInfoLine())
 
   if (skills.length > 0) {
     const catalog = [

@@ -31,6 +31,17 @@ bun install
 | `TAVILY_API_KEY` | WebSearch(Tavily) | — | [Tavily](https://tavily.com/) Search API Key |
 | `WEB_SEARCH_ADAPTER` | 否 | 见下 | `brave` 或 `tavily`；未设时：仅有 Tavily Key → tavily，否则 brave |
 | `TAVILY_ENDPOINT_URL` | 否 | `https://api.tavily.com/search` | 自定义 Tavily 端点（可省略尾部 `/search`） |
+| `CLAUDE_CODE_GIT_BASH_PATH` | Windows + Bash | — | 指向 Git Bash 的 `bash.exe`；未设时探测常见 Git 安装路径 |
+
+### Bash（Windows）
+
+`Bash` 在 Windows 上通过 **Git Bash** 执行（对齐 Claude Code），**不是** `cmd.exe`。请用 Unix 语法（`ls`、`&&`、`/dev/null`），不要用 `dir` / `NUL`。
+
+- 需安装 [Git for Windows](https://git-scm.com/downloads/win)
+- 自定义路径：`$env:CLAUDE_CODE_GIT_BASH_PATH = "C:\Program Files\Git\bin\bash.exe"`
+- 找不到 bash 时该工具返回错误，不影响 Read/Write 等其它工具
+
+术语见 [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md)。
 
 ### WebSearch / WebFetch
 

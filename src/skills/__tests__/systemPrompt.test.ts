@@ -62,6 +62,12 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('currently empty')
   })
 
+  test('includes shell info line for Unix syntax', () => {
+    const result = buildSystemPrompt('Project rules', [], undefined, '/ws')
+    expect(result).toContain('Shell:')
+    expect(result).toMatch(/bash/i)
+  })
+
   test('loads project context, memory, and skills into one session snapshot', async () => {
     let projectLoads = 0
     let skillScans = 0
