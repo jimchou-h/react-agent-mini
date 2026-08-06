@@ -27,6 +27,24 @@ bun install
 | `CONTEXT_WINDOW_TOKENS` | 否 | `128000` | 估算 ctx % 时的窗口大小 |
 | `COMPACT_THRESHOLD_CHARS` | 否 | `80000` | 确定性 microcompact / 保尾的出站字符阈值 |
 | `HOOKS` | 否 | 开启 | 设为 `0` 跳过 `.agents/hooks.json` 中的生命周期 hooks |
+| `BRAVE_API_KEY` | WebSearch 时是 | — | Brave Search API Key（亦接受 `BRAVE_SEARCH_API_KEY`） |
+
+### WebSearch / WebFetch
+
+模型可调用只读联网工具（对齐 CC 精简子集）：
+
+| 工具 | 入参 | 说明 |
+|------|------|------|
+| **WebSearch** | `query`（必填）；可选 `allowed_domains` / `blocked_domains` / `num_results` | 默认走 Brave Search；返回 title / url / snippet |
+| **WebFetch** | `url` | GET http(s)；HTML 去标签；默认约 30s / 512KB 上限 |
+
+- 缺 `BRAVE_API_KEY` 时 WebSearch 返回错误 tool_result（不抛崩进程）
+- WebFetch **拒绝** `file:`、localhost、私网与链路本地 IP（基础 SSRF 护栏）
+- 二者均尊重 turn `AbortSignal`（Ctrl+C 可中止进行中的搜索/拉取）
+
+**不做：** Anthropic 服务端 search、多 provider 配置 UI、JS 渲染页、PDF/二进制正文。
+
+术语见 [`src/tools/CONTEXT.md`](src/tools/CONTEXT.md)。
 
 ### Hooks（PreToolUse / PostToolUse / Stop）
 

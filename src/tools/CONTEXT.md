@@ -38,6 +38,22 @@
 | **Edit** | 否 | 已存在文件中 `old_string`→`new_string`；默认唯一匹配；可选 `replace_all`；文件 ≤100KB |
 | **Bash** | 否 | 在 cwd 执行 shell 命令；合并 stdout/stderr；超时/截断；非零退出标 `isError` |
 | **Agent** | 否 | 同步嵌套 `query` 子代理；摘要回父；子池排除 `Agent`；maxDepth=1 |
+| **WebSearch** | 是 | 联网搜索；默认 Brave adapter；缺 Key / abort → `isError` |
+| **WebFetch** | 是 | 拉取 http(s) 正文；HTML 去标签；SSRF 护栏 / abort → `isError` |
+
+### WebSearch / WebFetch
+
+| 术语 | 说明 |
+|------|------|
+| **WebSearchAdapter** | `src/services/webSearch/`：`search(query, options?)` → hits |
+| **Brave adapter** | 默认实现；`BRAVE_API_KEY` 或 `BRAVE_SEARCH_API_KEY` |
+| **setWebSearchAdapterForTests** | 测试注入 mock / hanging adapter |
+| **WebSearchConfigError** | 缺 Key 等配置错误 → 工具 `isError` |
+| **assertSafeFetchUrl** | 仅 http(s)；拒 localhost / 私网 / 链路本地 IP |
+| **fetchUrlText** | GET + 超时/大小上限 + `htmlToText`；可注入 `fetchImpl` |
+| **setWebFetchImplForTests** | 测试注入 `fetch` |
+
+**非目标：** Anthropic 服务端 search、JS 渲染、PDF/二进制解析、完整代理绕过 SSRF、可配置多 provider UI。
 
 ### Agent 专用术语
 

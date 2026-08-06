@@ -14,6 +14,8 @@ import { GlobTool } from './GlobTool.js'
 import { GrepTool } from './GrepTool.js'
 import { ReadTool } from './ReadTool.js'
 import { SkillTool } from './SkillTool.js'
+import { WebFetchTool } from './WebFetchTool.js'
+import { WebSearchTool } from './WebSearchTool.js'
 import { WriteTool } from './WriteTool.js'
 
 /**
@@ -33,5 +35,7 @@ export function getTools(): Tools {
     EditTool,
     BashTool,
     AgentTool,
+    WebSearchTool,
+    WebFetchTool,
   ]
 }
