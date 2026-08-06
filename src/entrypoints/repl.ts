@@ -22,6 +22,7 @@ import { formatSkillInjection } from '../skills/inject.js'
 import { parseSkillSlash } from '../skills/slash.js'
 import { createUserMessage } from '../utils/messages.js'
 import { consumeQueryStream } from './consumeQueryStream.js'
+import { buildInitPrompt, probeInitTargetHint } from './initSlash.js'
 import { installTurnInterrupt } from './turnInterrupt.js'
 
 /** 轮次结束后打印上下文占用（估算或 lastUsage） */
@@ -37,19 +38,21 @@ export function isSkippableReplLine(line: string): boolean {
   return line.trim().length === 0
 }
 
-/** 本地 slash：exit / clear / help / compact / memory（不含 MCP `/server:prompt`） */
+/** 本地 slash：exit / clear / help / compact / memory / init（不含 MCP `/server:prompt`） */
 export type SlashCommand =
   | { type: 'exit' }
   | { type: 'clear' }
   | { type: 'help' }
   | { type: 'compact' }
   | { type: 'memory' }
+  | { type: 'init'; args: string }
 
 const BASE_HELP_TEXT = `可用命令:
   /exit, /quit  — 退出 REPL
   /clear        — 清空会话历史
   /compact      — LLM 摘要压缩当前会话
   /memory       — 显示 Agent Memory 路径与长度
+  /init         — 分析仓库并生成/更新 AGENTS.md 或 CLAUDE.md
   /help         — 显示本帮助`
 
 /** 拼本地帮助 + 可选 MCP prompt + Skill slash 列表 */
@@ -108,6 +111,10 @@ export function parseSlashCommand(line: string): SlashCommand | null {
   }
   if (trimmed === '/memory') {
     return { type: 'memory' }
+  }
+  const initMatch = /^\/init(?:\s+(.*))?$/.exec(trimmed)
+  if (initMatch) {
+    return { type: 'init', args: (initMatch[1] ?? '').trim() }
   }
   return null
 }
@@ -190,6 +197,24 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
     if (slash?.type === 'memory') {
       await deps.engine.refreshMemoryIfNeeded()
       print(formatMemoryStatus(deps.engine.memorySnapshot))
+      deps.onAfterTurn?.()
+      continue
+    }
+    if (slash?.type === 'init') {
+      const injection = createUserMessage(
+        buildInitPrompt(slash.args, probeInitTargetHint()),
+      )
+      try {
+        await consume(
+          deps.engine.runTurn('', {
+            injectBefore: [injection],
+          }),
+        )
+        printContextUsage(deps.engine, print)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        print(`init 失败: ${msg}`)
+      }
       deps.onAfterTurn?.()
       continue
     }

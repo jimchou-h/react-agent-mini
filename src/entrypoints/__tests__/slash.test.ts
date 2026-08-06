@@ -29,6 +29,18 @@ describe('parseSlashCommand', () => {
     expect(parseSlashCommand('/memory')).toEqual({ type: 'memory' })
   })
 
+  test('parses init with optional args', () => {
+    expect(parseSlashCommand('/init')).toEqual({ type: 'init', args: '' })
+    expect(parseSlashCommand('/init focus on tests')).toEqual({
+      type: 'init',
+      args: 'focus on tests',
+    })
+  })
+
+  test('does not treat /initialize as init', () => {
+    expect(parseSlashCommand('/initialize')).toBeNull()
+  })
+
   test('returns null for normal prompts', () => {
     expect(parseSlashCommand('你好')).toBeNull()
     expect(parseSlashCommand('/unknown')).toBeNull()
@@ -76,6 +88,55 @@ describe('runReplSession slash handling', () => {
     expect(engine.messages).toEqual([])
     expect(printed.some(p => p.includes('会话已清空'))).toBe(true)
     expect(printed.some(p => p.includes('/help'))).toBe(true)
+  })
+
+  test('/init injects guide and runTurn (not unknown slash)', async () => {
+    const tools = getTools()
+    const seenUser: string[] = []
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: async function* mock(params) {
+          for (const m of params.messages) {
+            if (m.type !== 'user') continue
+            for (const b of m.content) {
+              if (b.type === 'text') seenUser.push(b.text)
+            }
+          }
+          yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+        },
+        uuid: () => 'init-uuid',
+      },
+    })
+
+    const printed: string[] = []
+    let turnCount = 0
+
+    async function* lines() {
+      yield '/init focus on bun test'
+      yield '/exit'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      print: t => printed.push(t),
+      consume: async gen => {
+        turnCount++
+        while (true) {
+          const { done, value } = await gen.next()
+          if (done) return value
+        }
+      },
+    })
+
+    expect(turnCount).toBe(1)
+    expect(printed.some(p => p.includes('未知命令'))).toBe(false)
+    const joined = seenUser.join('\n')
+    expect(joined).toContain('AGENTS.md')
+    expect(joined).toContain('focus on bun test')
+    expect(joined).not.toContain('/init focus')
   })
 
   test('/compact rewrites session and prints before/after ctx', async () => {
@@ -445,6 +506,7 @@ describe('buildHelpText', () => {
     expect(text).toContain('tour:plan_trip (MCP)')
     expect(text).toContain('/compact')
     expect(text).toContain('/memory')
+    expect(text).toContain('/init')
   })
 
   test('includes Skill slash section', () => {

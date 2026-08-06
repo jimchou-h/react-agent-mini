@@ -150,7 +150,22 @@ REPL 内可用：
 | `/clear` | 清空会话历史 |
 | `/compact` | LLM 摘要压缩当前会话（打印压缩前后 `ctx ~NN%`） |
 | `/memory` | 显示 Agent Memory 路径与长度（不 callModel） |
+| `/init` | 分析仓库并生成/更新项目上下文（见下） |
 | `/exit` 或 `/quit` | 退出 |
+
+#### `/init`
+
+注入固定引导 prompt 并开一轮对话，让模型用 Read/Glob/Grep + Write/Edit 写项目说明：
+
+| 情况 | 默认目标 |
+|------|----------|
+| 无 `AGENTS.md` / `CLAUDE.md` | 创建 **`AGENTS.md`** |
+| 已有 `CLAUDE.md` | 改进 **`CLAUDE.md`**（不另起炉灶） |
+| 仅有 `AGENTS.md` | 改进 **`AGENTS.md`** |
+
+可带补充：`/init focus on test commands`。写文件仍走 REPL 确认 / `ALLOW_WRITE`。
+
+**非目标（v8+）：** `/plan` / Plan Mode、Ink UI、AskUserQuestion 多阶段访谈、自动 skills/hooks 全套脚手架。
 
 > 若曾设置 `$env:QUERY_MOCK="1"`，请先 `Remove-Item Env:QUERY_MOCK`，否则会一直走仅 Echo 的 mock。
 
