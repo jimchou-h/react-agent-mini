@@ -113,3 +113,12 @@ REPL SHALL 与 headless 模式使用相同的流式输出约定（text → stdou
 - **WHEN** REPL 会话中 Agent 调用 Read 工具
 - **THEN** stderr 打印 `[工具] Read: path` 格式状态行
 
+### Requirement: REPL 支持 /init
+
+`parseSlashCommand`（或等价）SHALL 识别 `/init`；`runReplSession` SHALL 按 slash-init 能力执行注入与查询。
+
+#### Scenario: 解析 /init
+
+- **WHEN** 输入行为 `/init` 或 `/init` 加参数
+- **THEN** 解析为 init 命令而非未知 slash
+
