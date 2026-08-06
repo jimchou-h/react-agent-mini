@@ -47,4 +47,11 @@ describe('buildInitPrompt', () => {
     expect(p).toContain('focus on test commands')
     expect(p).toContain('Additional user notes:')
   })
+
+  test('appends mini host constraints without rewriting OLD_INIT body', () => {
+    const p = buildInitPrompt()
+    expect(p).toContain('Host constraints (react-agent-mini)')
+    expect(p).toContain('do **not** execute the full test suite')
+    expect(p).toContain('What to add:')
+  })
 })

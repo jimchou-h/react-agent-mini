@@ -75,5 +75,16 @@ ${headerNote}
   if (extra) {
     text += `\n\nAdditional user notes:\n${extra}`
   }
+
+  // mini 宿主约束（非改写 CC 正文）：REPL 下每个 Bash 都要人工确认，且拒绝会 abort 整轮。
+  // 对齐纪律允许：仅补 Non-Goals / 平台差异，不重写 OLD_INIT 语义。
+  text += `
+
+## Host constraints (react-agent-mini)
+
+- Discover build/lint/test commands by **reading** \`package.json\`, README, and CI configs — do **not** execute the full test suite or long typechecks during \`/init\`.
+- Prefer a small set of reads (manifest + README + existing ${target}); avoid sweeping every CONTEXT.md.
+- Write/Edit still require user confirmation; keep the ${target} concise.`
+
   return text
 }
