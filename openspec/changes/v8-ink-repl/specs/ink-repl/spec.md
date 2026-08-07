@@ -89,6 +89,20 @@ Ink REPL SHALL 在 turn 运行中显示进行中指示，并在轮次正常结�
 - **WHEN** turn 进行中用户第一次 interrupt
 - **THEN** 本轮 abort，界面回到可输入状态
 
+### Requirement: Transcript Markdown 渲染
+
+Ink REPL 的 transcript SHALL 对助手消息（含流式未完成态）与用户文本消息按 Markdown（GFM 子集）渲染，至少支持：标题、粗体、斜体、行内代码、围栏代码块、列表、引用、链接。系统 SHALL NOT 将含 Markdown 语法的助手正文仅以未解析纯文本展示为唯一路径。
+
+#### Scenario: 粗体与代码可见为格式化输出
+
+- **WHEN** 助手消息包含 `**bold**` 与 `` `code` ``
+- **THEN** 界面经 Markdown 渲染路径输出（非原样转义丢弃标记的唯一展示）
+
+#### Scenario: 围栏代码块保留内容
+
+- **WHEN** 助手消息含 fenced code block
+- **THEN** 代码正文出现在 transcript 渲染结果中
+
 ### Requirement: Upstream pin 可升级
 
 项目 SHALL 记录 UI/`@anthropic/ink` 的 upstream 来源与 pin（commit 或 tag），并具备可重复的同步说明，使后续对齐 CC 时以更新 vendor + 核对 Bridge/stub 为主要路径。

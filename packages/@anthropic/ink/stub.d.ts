@@ -34,6 +34,7 @@ export type Key = {
 
 export const Text: any
 export const Box: any
+export const Ansi: any
 export const useInput: (
   handler: (input: string, key: Key) => void,
   options?: { isActive?: boolean },

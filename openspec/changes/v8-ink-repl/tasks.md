@@ -20,11 +20,16 @@
 
 ## 5. Slash、interrupt、stub
 
-- [ ] 5.1 `/` 建议接本仓内置/MCP/Skill；执行优先级与未知 slash 行为不变
-- [ ] 5.2 Ink 路径接通 idle/running/cleanup interrupt；缺能力模块 stub/feature 关闭且不崩溃
-- [ ] 5.3 默认 Ink 入口；更新 architecture/README；`ui-upstream.md` 含升级步骤；Windows WT 手工验收
+- [x] 5.1 `/` 建议接本仓内置/MCP/Skill；执行优先级与未知 slash 行为不变
+- [x] 5.2 Ink 路径接通 idle/running/cleanup interrupt；缺能力模块 stub/feature 关闭且不崩溃
+- [x] 5.3 默认 Ink 入口；更新 architecture/README；`ui-upstream.md` 含升级步骤；Windows WT 手工验收
 
 ## 6. 升级友好性收尾
 
-- [ ] 6.1 核对：UI 内无直接深耦合 `QueryEngine`（仅经 Bridge）；vendored ink 本地 diff 最小化并文档化
-- [ ] 6.2 `bun test` + `typecheck` 通过
+- [x] 6.1 核对：UI 内无直接深耦合 `QueryEngine`（仅经 Bridge）；vendored ink 本地 diff 最小化并文档化
+- [x] 6.2 `bun test` + `typecheck` 通过
+
+## 7. Markdown（必须）
+
+- [x] 7.1 `formatMarkdown`（marked + chalk）单测：粗体/代码/围栏/标题列表
+- [x] 7.2 `src/ui/components/Markdown.tsx` 接入 Messages（助手+用户+流式）

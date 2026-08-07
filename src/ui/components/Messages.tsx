@@ -1,27 +1,28 @@
 import React from 'react'
 import { Box, Text } from '@anthropic/ink'
 import type { HostBridgeSnapshot, TranscriptItem } from '../../host/types.js'
+import { Markdown } from './Markdown.js'
 
 function ItemView({ item }: { item: TranscriptItem }) {
   switch (item.kind) {
     case 'user':
       return (
-        <Box>
-          <Text color={"green" as any}>you: </Text>
-          <Text>{item.text}</Text>
+        <Box flexDirection="column">
+          <Text color={'green' as any}>you:</Text>
+          <Markdown>{item.text}</Markdown>
         </Box>
       )
     case 'assistant':
       return (
-        <Box>
-          <Text color={"magenta" as any}>assistant: </Text>
-          <Text>{item.text}</Text>
+        <Box flexDirection="column">
+          <Text color={'magenta' as any}>assistant:</Text>
+          <Markdown>{item.text}</Markdown>
         </Box>
       )
     case 'tool':
       return (
         <Box>
-          <Text color={"yellow" as any}>
+          <Text color={'yellow' as any}>
             [{item.status}] {item.toolName}
             {item.summary ? `: ${item.summary}` : ''}
           </Text>
@@ -48,9 +49,9 @@ export function Messages({ snapshot }: MessagesProps) {
         <ItemView key={item.id} item={item} />
       ))}
       {snapshot.streamingText ? (
-        <Box>
-          <Text color={"magenta" as any}>assistant: </Text>
-          <Text>{snapshot.streamingText}</Text>
+        <Box flexDirection="column">
+          <Text color={'magenta' as any}>assistant:</Text>
+          <Markdown>{snapshot.streamingText}</Markdown>
         </Box>
       ) : null}
     </Box>

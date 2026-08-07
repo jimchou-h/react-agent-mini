@@ -4,7 +4,8 @@ v7 已把引擎能力对齐到可学习的 CC 子集，但交互面仍是 readli
 
 ## What Changes
 
-- **Vendor `@anthropic/ink`**：以 workspace 包迁入（对齐 CC `packages/@ant/ink` → 包名 `@anthropic/ink`），REPL 运行时基于该 fork（含布局/输入等能力），**不**用官方 npm `ink` 作为主路径。
+- **Ink REPL 主界面**：消息 transcript（Markdown 渲染）+ PromptInput + 状态行 + 权限 Fallback + slash 建议。
+- **Markdown（必须）**：助手/用户/流式文本经 `marked` GFM 子集渲染为终端 ANSI（对齐 CC marked 路线，便于后续换完整 Markdown.tsx）。
 - **CC 对齐的 UI 树（裁剪）**：按 CC 相对路径落 `screens/REPL`、`components/Messages|PromptInput|permissions|…` 等；去掉或 stub 本仓没有的能力（plan、AskUserQuestion、sandbox、vim、图片 paste 等）。
 - **Host Bridge（升级枢纽）**：薄适配层把本仓 `QueryEngine` / `AskFn` / slash / interrupt / ctx% 暴露为 UI 所需 props/事件；**禁止**为迁就 UI 而把业务逻辑写进大量 fork 过的 CC 组件内部。
 - **权限 / slash / 流式 / interrupt**：行为对齐既有 v7 规格；交互走 CC 风格 PromptInput；权限 UI **能搬就搬**（Bash/FileEdit/FileWrite 等专用框优先，其余 Fallback）。
