@@ -3,14 +3,16 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["bun-types"],
     "paths": {
-      "src/*": ["./src/*"]
+      "src/*": ["./src/*"],
+      "@anthropic/ink": ["./packages/@anthropic/ink/src/index.ts"]
     },
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
