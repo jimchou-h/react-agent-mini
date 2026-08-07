@@ -1,17 +1,17 @@
 ## 1. Vendor 与冒烟
 
-- [ ] 1.1 迁入 `packages/@anthropic/ink`（源自 CC `@ant/ink`），根 `package.json` workspace 依赖对齐；记录 pin 到 `docs/ui-upstream.md`
-- [ ] 1.2 最小 `createRoot` + 文本冒烟可在 Bun 下渲染；补充 `PATCHES.md` 占位（若有平台补丁）
+- [x] 1.1 迁入 `packages/@anthropic/ink`（源自 CC `@ant/ink`），根 `package.json` workspace 依赖对齐；记录 pin 到 `docs/ui-upstream.md`
+- [x] 1.2 最小 `createRoot` + 文本冒烟可在 Bun 下渲染；补充 `PATCHES.md` 占位（若有平台补丁）
 
 ## 2. Host Bridge 与入口竖切
 
-- [ ] 2.1 实现 `src/host/`（Bridge：runTurn yields → UI 模型；AskFn；slash 注册表；interrupt 触发）；单测不依赖完整 REPL
-- [ ] 2.2 裁剪装配 `launchRepl` + App 壳；`cli.ts` REPL 分支进入 Ink；headless/pipe 回归绿
+- [x] 2.1 实现 `src/host/`（Bridge：runTurn yields → UI 模型；AskFn；slash 注册表；interrupt 触发）；单测不依赖完整 REPL
+- [x] 2.2 裁剪装配 `launchRepl` + App 壳；`cli.ts` REPL 分支进入 Ink；headless/pipe 回归绿
 
 ## 3. Messages + PromptInput 竖切
 
-- [ ] 3.1 按 CC 相对路径接入 Messages/transcript（允许 `src/ui/` 前缀）；流式文本经 Bridge 更新
-- [ ] 3.2 接入 PromptInput：Enter 提交普通 turn；空行跳过；与本仓 `QueryEngine` 历史连续
+- [x] 3.1 按 CC 相对路径接入 Messages/transcript（允许 `src/ui/` 前缀）；流式文本经 Bridge 更新
+- [x] 3.2 接入 PromptInput：Enter 提交普通 turn；空行跳过；与本仓 `QueryEngine` 历史连续
 
 ## 4. 权限与状态竖切
 

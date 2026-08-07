@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "types": "./stub.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./stub.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "dependencies": {
     "@alcalzone/ansi-tokenize": "^0.3.0",

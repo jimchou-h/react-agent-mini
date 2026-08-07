@@ -131,13 +131,43 @@ async function main(): Promise<void> {
       return
     }
 
-    // REPL — 单一 readline，权限确认与提示符共用
+    // REPL — Ink UI (Host Bridge); set REPL_UI=readline for legacy path
+    const sessionRules = createSessionPermissionRules()
+    const cwd = process.cwd()
+
+    if (process.env.REPL_UI !== 'readline') {
+      const { HostBridge } = await import('../host/HostBridge.js')
+      const { launchRepl } = await import('../ui/launchRepl.js')
+      let askImpl: (prompt: string) => Promise<string> = async () => 'n'
+      const ask = (prompt: string) => askImpl(prompt)
+      const inkEngine = new QueryEngine({
+        tools,
+        toolUseContext: createSessionToolContext(tools, skills, {
+          mcpClients: mcp.clients,
+          canUseTool: createReplCanUseTool(ask, sessionRules),
+        }),
+        systemPrompt,
+        memoryRefresh: {
+          cwd,
+          projectContext,
+          skills,
+          snapshot: memorySnapshot,
+        },
+      })
+      const bridge = new HostBridge({ engine: inkEngine })
+      askImpl = bridge.createAskFn()
+      await launchRepl({
+        bridge,
+        mcpCommands: mcp.commands,
+        skills,
+      })
+      return
+    }
+
     const readline = await import('node:readline/promises')
     const { stdin: input, stdout: output } = await import('node:process')
     const rl = readline.createInterface({ input, output })
     const ask = async (prompt: string): Promise<string> => rl.question(prompt)
-    const sessionRules = createSessionPermissionRules()
-    const cwd = process.cwd()
     const engine = new QueryEngine({
       tools,
       toolUseContext: createSessionToolContext(tools, skills, {

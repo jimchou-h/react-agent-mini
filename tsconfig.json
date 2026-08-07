@@ -9,8 +9,7 @@
     "noEmit": true,
     "types": ["bun-types"],
     "paths": {
-      "src/*": ["./src/*"],
-      "@anthropic/ink": ["./packages/@anthropic/ink/src/index.ts"]
+      "src/*": ["./src/*"]
     },
     "baseUrl": "."
   },
