@@ -4,6 +4,7 @@ import type { Tool } from '../../Tool.js'
 import {
   createHeadlessCanUseTool,
   createReplCanUseTool,
+  createSessionPermissionRules,
   USER_REJECT_MESSAGE,
 } from '../canUseTool.js'
 
@@ -202,5 +203,99 @@ describe('createReplCanUseTool', () => {
     )
     expect(result).toEqual({ behavior: 'allow' })
     expect(prompts[0]).toContain('rm -rf build')
+  })
+
+  test('skips ask when session rule matches tool name', async () => {
+    const rules = createSessionPermissionRules()
+    rules.allow('Write')
+    let asked = false
+    const canUse = createReplCanUseTool(async () => {
+      asked = true
+      return 'n'
+    }, rules)
+    const result = await canUse(
+      createWriteLikeTool(),
+      { file_path: 'out.txt', content: 'hi' },
+      { tools: [] },
+    )
+    expect(asked).toBe(false)
+    expect(result).toEqual({ behavior: 'allow' })
+  })
+
+  test('still asks when path rule does not match', async () => {
+    const rules = createSessionPermissionRules()
+    rules.allow('Write', 'src/*')
+    let asked = false
+    const canUse = createReplCanUseTool(async () => {
+      asked = true
+      return 'y'
+    }, rules)
+    const result = await canUse(
+      createWriteLikeTool(),
+      { file_path: 'other/out.txt', content: 'hi' },
+      { tools: [] },
+    )
+    expect(asked).toBe(true)
+    expect(result).toEqual({ behavior: 'allow' })
+  })
+
+  test('always (a) remembers allow and skips later asks', async () => {
+    const rules = createSessionPermissionRules()
+    const prompts: string[] = []
+    const answers = ['a', 'n']
+    const canUse = createReplCanUseTool(async prompt => {
+      prompts.push(prompt)
+      return answers.shift() ?? 'n'
+    }, rules)
+
+    const first = await canUse(
+      createWriteLikeTool(),
+      { file_path: 'out.txt', content: 'hi' },
+      { tools: [] },
+    )
+    expect(first).toEqual({ behavior: 'allow' })
+    expect(prompts[0]).toContain('[y/a/N]')
+
+    const second = await canUse(
+      createWriteLikeTool(),
+      { file_path: 'out.txt', content: 'again' },
+      { tools: [] },
+    )
+    expect(second).toEqual({ behavior: 'allow' })
+    expect(prompts).toHaveLength(1)
+  })
+})
+
+describe('session permission rules + headless', () => {
+  const prev = process.env.ALLOW_WRITE
+
+  afterEach(() => {
+    if (prev === undefined) delete process.env.ALLOW_WRITE
+    else process.env.ALLOW_WRITE = prev
+  })
+
+  test('headless allows write when session rule matches', async () => {
+    delete process.env.ALLOW_WRITE
+    const rules = createSessionPermissionRules()
+    rules.allow('Write', 'out.txt')
+    const canUse = createHeadlessCanUseTool(rules)
+    const result = await canUse(
+      createWriteLikeTool(),
+      { file_path: 'out.txt', content: 'x' },
+      { tools: [] },
+    )
+    expect(result).toEqual({ behavior: 'allow' })
+  })
+
+  test('headless still denies write without rule or ALLOW_WRITE', async () => {
+    delete process.env.ALLOW_WRITE
+    const rules = createSessionPermissionRules()
+    const canUse = createHeadlessCanUseTool(rules)
+    const result = await canUse(
+      createWriteLikeTool(),
+      { file_path: 'out.txt', content: 'x' },
+      { tools: [] },
+    )
+    expect(result.behavior).toBe('deny')
   })
 })

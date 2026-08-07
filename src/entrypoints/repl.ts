@@ -12,8 +12,10 @@ import type { QueryEngine } from '../QueryEngine.js'
 import type { SummarizeFn } from '../services/compact/autoCompact.js'
 import {
   estimateContextUsage,
+  formatCompactSuccessFeedback,
   formatContextUsage,
 } from '../services/compact/contextUsage.js'
+import { formatMcpFailure } from '../services/mcp/errors.js'
 import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient, McpSlashCommand } from '../services/mcp/types.js'
 import { formatMcpHelpLines, parseMcpSlashCommand } from '../services/mcp/promptSlash.js'
@@ -25,8 +27,10 @@ import { consumeQueryStream } from './consumeQueryStream.js'
 import { buildInitPrompt, probeInitTargetHint } from './initSlash.js'
 import { installTurnInterrupt } from './turnInterrupt.js'
 
-/** 轮次结束后打印上下文占用（估算或 lastUsage） */
+/** 轮次结束后打印上下文占用（估算或 lastUsage）；先刷 autocompact 反馈 */
 function printContextUsage(engine: QueryEngine, print: (text: string) => void): void {
+  const compactFeedback = engine.takeCompactFeedback()
+  if (compactFeedback) print(compactFeedback)
   const estimate = estimateContextUsage(engine.messages, {
     usage: engine.lastUsage ?? null,
   })
@@ -38,19 +42,21 @@ export function isSkippableReplLine(line: string): boolean {
   return line.trim().length === 0
 }
 
-/** 本地 slash：exit / clear / help / compact / memory / init（不含 MCP `/server:prompt`） */
+/** 本地 slash：exit / clear / help / compact / memory / status / init（不含 MCP `/server:prompt`） */
 export type SlashCommand =
   | { type: 'exit' }
   | { type: 'clear' }
   | { type: 'help' }
   | { type: 'compact' }
   | { type: 'memory' }
+  | { type: 'status' }
   | { type: 'init'; args: string }
 
 const BASE_HELP_TEXT = `可用命令:
   /exit, /quit  — 退出 REPL
   /clear        — 清空会话历史
   /compact      — LLM 摘要压缩当前会话
+  /status       — 显示当前上下文占用估计
   /memory       — 显示 Agent Memory 路径与长度
   /init         — 分析仓库并生成/更新 AGENTS.md 或 CLAUDE.md
   /help         — 显示本帮助`
@@ -111,6 +117,9 @@ export function parseSlashCommand(line: string): SlashCommand | null {
   }
   if (trimmed === '/memory') {
     return { type: 'memory' }
+  }
+  if (trimmed === '/status') {
+    return { type: 'status' }
   }
   const initMatch = /^\/init(?:\s+(.*))?$/.exec(trimmed)
   if (initMatch) {
@@ -184,9 +193,17 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
         const result = await deps.engine.compactNow({
           summarize: deps.summarizeForCompact,
         })
-        print(
-          `已压缩会话（${formatContextUsage(result.before)} → ${formatContextUsage(result.after)}）`,
+        const feedback = formatCompactSuccessFeedback(
+          result.before,
+          result.after,
         )
+        if (feedback) {
+          print(feedback)
+        } else {
+          print(
+            `会话已整理（占用未变：${formatContextUsage(result.after)}）`,
+          )
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         print(`压缩失败: ${msg}`)
@@ -197,6 +214,11 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
     if (slash?.type === 'memory') {
       await deps.engine.refreshMemoryIfNeeded()
       print(formatMemoryStatus(deps.engine.memorySnapshot))
+      deps.onAfterTurn?.()
+      continue
+    }
+    if (slash?.type === 'status') {
+      printContextUsage(deps.engine, print)
       deps.onAfterTurn?.()
       continue
     }
@@ -242,7 +264,7 @@ export async function runReplSession(deps: ReplSessionDeps): Promise<void> {
         printContextUsage(deps.engine, print)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        print(`MCP prompt 失败: ${msg}`)
+        print(formatMcpFailure('prompt', msg))
       }
       deps.onAfterTurn?.()
       continue

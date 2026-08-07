@@ -39,7 +39,7 @@ stdio MCP 客户端与工具适配。源码：`src/services/mcp/`。
 ## 限制
 
 - 仅 **stdio** transport
-- 不支持 SSE/HTTP、OAuth、Sampling、`resources/subscribe`
+- **不支持 HTTP/SSE**、OAuth、Sampling、`resources/subscribe`
 - 默认 `isReadOnly=false`（走 canUseTool）；`readOnlyHint` 可映射为只读
 - image content 不入模型上下文（仅占位提示）
 

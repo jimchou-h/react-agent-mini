@@ -1,6 +1,12 @@
 /**
  * 将 interrupt（SIGINT 等）映射到当前 turn abort；空闲则退出回调。
  *
+ * 状态机（对齐 v7-cancel / Claude Code）：
+ * - running：abortCurrentTurn() 成功 → 首次 abort 本轮，进入 cleanup
+ * - cleanup：已 abort 且 isTurnInProgress → 二次 interrupt → onForceInterrupt
+ * - idle：无 turn；首次 onIdleFirstInterrupt（默认无动作）；
+ *   窗口内二次 → onIdleInterrupt（通常退出）
+ *
  * 注意：node:readline 占用 stdin 时，Ctrl+C 往往只触发 Interface 的 `SIGINT`
  *（无监听则 pause），不一定落到 process。必须同时挂 rl + process。
  */

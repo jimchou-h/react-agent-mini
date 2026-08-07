@@ -88,6 +88,23 @@ export function formatContextUsage(estimate: ContextUsageEstimate): string {
   return `ctx ~${estimate.usedPercent}%`
 }
 
+/**
+ * 实质压缩成功时的用户可见反馈；占用未变则返回 null（避免误导性「已压缩」）。
+ * `/compact` 与 autocompact 共用。
+ */
+export function formatCompactSuccessFeedback(
+  before: ContextUsageEstimate,
+  after: ContextUsageEstimate,
+): string | null {
+  if (
+    before.usedPercent === after.usedPercent &&
+    before.usedTokens === after.usedTokens
+  ) {
+    return null
+  }
+  return `已压缩会话（${formatContextUsage(before)} → ${formatContextUsage(after)}）`
+}
+
 function clampPercent(used: number, window: number): number {
   if (window <= 0) return 0
   return Math.min(100, Math.max(0, Math.round((used / window) * 100)))

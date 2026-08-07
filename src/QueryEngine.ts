@@ -7,7 +7,7 @@
  */
 
 import { query } from './query.js'
-import type { QueryDeps } from './query/deps.js'
+import { productionDeps, type QueryDeps } from './query/deps.js'
 import type { Terminal } from './query/types.js'
 import type { ToolUseContext, Tools } from './Tool.js'
 import type { Message, QueryYield, UserMessage } from './types/message.js'
@@ -17,6 +17,7 @@ import {
 } from './services/compact/autoCompact.js'
 import {
   estimateContextUsage,
+  formatCompactSuccessFeedback,
   type ContextUsageEstimate,
   type TokenUsage,
 } from './services/compact/contextUsage.js'
@@ -65,6 +66,8 @@ export class QueryEngine {
   #lastUsage: TokenUsage | null = null
   /** 当前 runTurn 的 AbortController；无进行中 turn 时为 undefined */
   #currentAbort: AbortController | undefined
+  /** 本轮 autocompact 成功后的用户可见反馈；take 一次后清空 */
+  #pendingCompactFeedback: string | null = null
 
   constructor(params: QueryEngineParams) {
     this.#tools = params.tools
@@ -116,6 +119,16 @@ export class QueryEngine {
   /** 最近一次模型调用的 token usage（若 Provider 未上报则为 null） */
   get lastUsage(): TokenUsage | null {
     return this.#lastUsage
+  }
+
+  /**
+   * 取出并清空本轮 autocompact 成功反馈（无则 null）。
+   * REPL 在 printContextUsage 前调用，与手动 `/compact` 文案一致。
+   */
+  takeCompactFeedback(): string | null {
+    const text = this.#pendingCompactFeedback
+    this.#pendingCompactFeedback = null
+    return text
   }
 
   /** 供 Provider / 测试写入最近一次 usage */
@@ -173,12 +186,31 @@ export class QueryEngine {
     }
 
     try {
+      const baseAutocompact =
+        this.#deps?.autocompact ??
+        ((messages, options) =>
+          productionDeps().autocompact(messages, options))
+      const deps: Partial<QueryDeps> = {
+        ...this.#deps,
+        autocompact: async (messages, options) => {
+          const result = await Promise.resolve(
+            baseAutocompact(messages, options),
+          )
+          if (result.compacted && result.before && result.after) {
+            this.#pendingCompactFeedback = formatCompactSuccessFeedback(
+              result.before,
+              result.after,
+            )
+          }
+          return result
+        },
+      }
       const gen = query({
         messages: this.#messages,
         tools: this.#tools,
         toolUseContext,
         maxTurns: this.#maxTurns,
-        deps: this.#deps,
+        deps,
         systemPrompt: this.#systemPrompt,
       })
 

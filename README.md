@@ -111,8 +111,11 @@ REPL 运行中：
 
 | 时机 | 行为 |
 |------|------|
-| **有进行中的 turn** | 第一次 Ctrl+C / SIGINT → `abortCurrentTurn`，中止当前 `query`（含流式模型请求与同步 `Agent` 子会话）；打印「已中断当前回合」，**会话可继续**输入；若仍未收尾，第二次可强制退出 |
-| **空闲（无 turn）** | 第一次 Ctrl+C 不动作；短时间内第二次 Ctrl+C 退出 |
+| **running（有进行中的 turn）** | 第一次 Ctrl+C / SIGINT → `abortCurrentTurn`，中止当前 `query`（含流式模型请求与同步 `Agent` 子会话）；打印「已中断当前回合」，**会话可继续**输入 |
+| **cleanup（已 abort 仍在收尾）** | 第二次 interrupt → 强制退出 |
+| **idle（无 turn）** | 第一次 Ctrl+C 不动作；短时间内第二次 Ctrl+C 退出 |
+
+权限 deny、`callModel` 流中 `AbortError` 与用户 interrupt 一样结束为 `{ reason: 'aborted' }`（tool_use/tool_result 配对规则不变）。
 
 程序化宿主可调用 `QueryEngine.abortCurrentTurn(reason?)`。`query` 会把 `abortController.signal` 传给 `callModel`。
 
@@ -122,8 +125,10 @@ REPL 运行中：
 
 | 模式 | 行为 |
 |------|------|
-| REPL | Write/Edit 前询问 `y/N` |
-| headless / pipe | 默认拒绝；`$env:ALLOW_WRITE="1"` 后允许 |
+| REPL | Write/Edit 前询问 `[y/a/N]`：`y` 允许一次，`a` 会话内始终允许（工具名+路径），`N` 拒绝 |
+| headless / pipe | 默认拒绝；`$env:ALLOW_WRITE="1"` 或会话规则命中后允许 |
+
+会话 allow 规则仅存于当前进程，**不跨重启持久化**。
 
 | 工具 | 何时用 |
 |------|--------|
@@ -160,7 +165,8 @@ REPL 内可用：
 |------|------|
 | `/help` | 显示帮助 |
 | `/clear` | 清空会话历史 |
-| `/compact` | LLM 摘要压缩当前会话（打印压缩前后 `ctx ~NN%`） |
+| `/compact` | LLM 摘要压缩当前会话（有实质压缩时打印前后 `ctx ~NN%`） |
+| `/status` | 显示当前上下文占用估计（与回合后 `ctx` 行同源） |
 | `/memory` | 显示 Agent Memory 路径与长度（不 callModel） |
 | `/init` | 分析仓库并生成/更新项目上下文（见下） |
 | `/exit` 或 `/quit` | 退出 |
@@ -283,10 +289,10 @@ bun run dev   # 问：用计算器算 17+25
 |------|------|
 | 无配置文件 | 跳过 MCP，仅内置工具（与 v2 一致） |
 | 某 server 连接失败 | stderr 警告并跳过该 server |
-| 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL y/n；headless 需 `ALLOW_WRITE=1`） |
+| 权限 | 默认非只读，走与 Write 相同的 `canUseTool`（REPL `[y/a/N]`；headless 需 `ALLOW_WRITE=1` 或会话规则） |
 | Resources | 只读工具；read 失败返回错误 tool_result |
 | Prompts | 仅 REPL slash 执行模板；`@server:uri` 在 slash/普通消息/headless 均可按需挂载；不经 Skill 工具 |
-| 限制 | 仅 stdio；无 SSE/OAuth/Sampling/`resources/subscribe` |
+| 限制 | 仅 **stdio**；**无 HTTP/SSE**、OAuth、Sampling、`resources/subscribe` |
 
 ### Mock 单次问答（无需 API Key）
 

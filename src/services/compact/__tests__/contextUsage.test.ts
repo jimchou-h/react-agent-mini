@@ -3,6 +3,7 @@ import { createUserMessage } from '../../../utils/messages.js'
 import {
   DEFAULT_CONTEXT_WINDOW_TOKENS,
   estimateContextUsage,
+  formatCompactSuccessFeedback,
   formatContextUsage,
   resolveContextWindowTokens,
 } from '../contextUsage.js'
@@ -64,6 +65,37 @@ describe('formatContextUsage', () => {
         windowTokens: 100,
       }),
     ).toBe('ctx ~42%')
+  })
+})
+
+describe('formatCompactSuccessFeedback', () => {
+  test('prints before/after when usage dropped', () => {
+    expect(
+      formatCompactSuccessFeedback(
+        {
+          usedPercent: 80,
+          source: 'chars',
+          usedTokens: 800,
+          windowTokens: 1000,
+        },
+        {
+          usedPercent: 20,
+          source: 'chars',
+          usedTokens: 200,
+          windowTokens: 1000,
+        },
+      ),
+    ).toBe('已压缩会话（ctx ~80% → ctx ~20%）')
+  })
+
+  test('returns null when usage unchanged', () => {
+    const same = {
+      usedPercent: 40,
+      source: 'chars' as const,
+      usedTokens: 400,
+      windowTokens: 1000,
+    }
+    expect(formatCompactSuccessFeedback(same, { ...same })).toBeNull()
   })
 })
 

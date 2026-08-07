@@ -29,6 +29,10 @@ describe('parseSlashCommand', () => {
     expect(parseSlashCommand('/memory')).toEqual({ type: 'memory' })
   })
 
+  test('parses status', () => {
+    expect(parseSlashCommand('/status')).toEqual({ type: 'status' })
+  })
+
   test('parses init with optional args', () => {
     expect(parseSlashCommand('/init')).toEqual({ type: 'init', args: '' })
     expect(parseSlashCommand('/init focus on tests')).toEqual({
@@ -239,6 +243,44 @@ describe('runReplSession slash handling', () => {
           ),
       ),
     ).toBe(false)
+  })
+
+  test('/status prints ctx usage without running a turn', async () => {
+    const tools = getTools()
+    const engine = new QueryEngine({
+      tools,
+      toolUseContext: createMinimalToolContext(tools),
+      deps: {
+        callModel: async function* mock() {
+          yield createAssistantMessage([{ type: 'text', text: 'ok' }])
+        },
+        uuid: () => 'status-uuid',
+      },
+    })
+
+    const printed: string[] = []
+    let turnCount = 0
+    async function* lines() {
+      yield 'hello'
+      yield '/status'
+      yield '/exit'
+    }
+
+    await runReplSession({
+      engine,
+      lines: lines(),
+      print: t => printed.push(t),
+      consume: async gen => {
+        turnCount++
+        while (true) {
+          const { done, value } = await gen.next()
+          if (done) return value
+        }
+      },
+    })
+
+    expect(turnCount).toBe(1)
+    expect(printed.filter(p => /^ctx ~\d+%$/.test(p)).length).toBeGreaterThanOrEqual(2)
   })
 
   test('MCP slash without @ mention does not auto-mount resources', async () => {

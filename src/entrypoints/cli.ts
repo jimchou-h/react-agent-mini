@@ -11,7 +11,7 @@ import type { DiscoveredSkill } from '../skills/discover.js'
 import { loadSessionContext } from '../skills/systemPrompt.js'
 import type { Tools } from '../Tool.js'
 import { createMinimalToolContext } from '../testing/fixtures.js'
-import { createHeadlessCanUseTool, createReplCanUseTool } from '../permissions/canUseTool.js'
+import { createHeadlessCanUseTool, createReplCanUseTool, createSessionPermissionRules } from '../permissions/canUseTool.js'
 import { loadMcpTools, sessionTools } from '../services/mcp/load.js'
 import { resolvePromptResourceMessages } from '../services/mcp/fetch.js'
 import type { McpConnectedClient } from '../services/mcp/types.js'
@@ -136,12 +136,13 @@ async function main(): Promise<void> {
     const { stdin: input, stdout: output } = await import('node:process')
     const rl = readline.createInterface({ input, output })
     const ask = async (prompt: string): Promise<string> => rl.question(prompt)
+    const sessionRules = createSessionPermissionRules()
     const cwd = process.cwd()
     const engine = new QueryEngine({
       tools,
       toolUseContext: createSessionToolContext(tools, skills, {
         mcpClients: mcp.clients,
-        canUseTool: createReplCanUseTool(ask),
+        canUseTool: createReplCanUseTool(ask, sessionRules),
       }),
       systemPrompt,
       memoryRefresh: {

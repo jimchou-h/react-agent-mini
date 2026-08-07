@@ -10,6 +10,7 @@ import { createUserMessage } from '../../utils/messages.js'
 import { trace } from '../../utils/trace.js'
 import {
   estimateContextUsage,
+  type ContextUsageEstimate,
   type TokenUsage,
 } from './contextUsage.js'
 
@@ -48,6 +49,9 @@ export type AutoCompactIfNeededOptions = {
 export type AutoCompactResult = {
   compacted: boolean
   messages: Message[]
+  /** 实质压缩成功时的占用前后（供 REPL 反馈） */
+  before?: ContextUsageEstimate
+  after?: ContextUsageEstimate
   reason?:
     | 'compact_disabled'
     | 'autocompact_disabled'
@@ -216,12 +220,19 @@ export async function autoCompactIfNeeded(
       systemPrompt: options.systemPrompt,
     })
     if (tracking) tracking.consecutiveFailures = 0
+    const after = estimateContextUsage(next, { usage: null })
     trace('compact.auto', {
       before: messages.length,
       after: next.length,
       percent: usage.usedPercent,
     })
-    return { compacted: true, messages: next, reason: 'success' }
+    return {
+      compacted: true,
+      messages: next,
+      before: usage,
+      after,
+      reason: 'success',
+    }
   } catch (err) {
     if (tracking) tracking.consecutiveFailures += 1
     const msg = err instanceof Error ? err.message : String(err)
