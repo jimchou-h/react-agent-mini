@@ -15,6 +15,7 @@
 |-----------|-------------|
 | `packages/@anthropic/ink` | `packages/@ant/ink` |
 | `src/ui/**` | `src/**` UI (screens, components, hooks) — relative paths mirror CC under the `src/ui/` prefix |
+| `src/ui/components/Markdown.tsx` + `utils/markdownFormat.ts` | CC `components/Markdown.tsx` + `utils/markdown.ts`（当前为 marked+chalk 子集，同步时可整文件替换） |
 | `src/host/**` | *(local)* Host Bridge — do not deep-couple UI to `QueryEngine` |
 
 ## Upgrade steps (follow when aligning CC)
