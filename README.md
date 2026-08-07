@@ -183,7 +183,7 @@ REPL 内可用：
 
 可带补充：`/init focus on test commands`。写文件仍走 REPL 确认 / `ALLOW_WRITE`。
 
-**非目标（v8+）：** `/plan` / Plan Mode、Ink UI、AskUserQuestion 多阶段访谈、自动 skills/hooks 全套脚手架。
+**非目标（仍不做）：** `/plan` / Plan Mode、AskUserQuestion 多阶段访谈、自动 skills/hooks 全套脚手架。交互 REPL 已使用 Ink（`src/ui`，见 `docs/ui-upstream.md`）。
 
 > 若曾设置 `$env:QUERY_MOCK="1"`，请先 `Remove-Item Env:QUERY_MOCK`，否则会一直走仅 Echo 的 mock。
 

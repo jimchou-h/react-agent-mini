@@ -15,8 +15,8 @@
 
 ## 4. 权限与状态竖切
 
-- [ ] 4.1 迁入 CC `permissions/` 中与本仓工具可对齐的专用对话框（Bash / FileEdit / FileWrite 等）+ Fallback；经 Bridge 接 `createReplCanUseTool` / session `a`；确认中防误提交；对不上的走 Fallback/stub
-- [ ] 4.2 Spinner/StatusLine：运行中指示 + 轮次结束 ctx %
+- [x] 4.1 迁入 CC `permissions/` 中与本仓工具可对齐的专用对话框（Bash / FileEdit / FileWrite 等）+ Fallback；经 Bridge 接 `createReplCanUseTool` / session `a`；确认中防误提交；对不上的走 Fallback/stub
+- [x] 4.2 Spinner/StatusLine：运行中指示 + 轮次结束 ctx %
 
 ## 5. Slash、interrupt、stub
 

@@ -9,6 +9,7 @@
  *
  * 注意：node:readline 占用 stdin 时，Ctrl+C 往往只触发 Interface 的 `SIGINT`
  *（无监听则 pause），不一定落到 process。必须同时挂 rl + process。
+ * Ink raw mode 下可对同一 handler 调用 `notify()`（见 createTurnInterruptHandler）。
  */
 
 export type TurnInterruptReadline = {
@@ -39,22 +40,19 @@ export type TurnInterruptOptions = {
 
 export type TurnInterruptHandle = {
   dispose: () => void
+  /** Ink / 其它路径主动注入一次 interrupt（与 SIGINT 同语义） */
+  notify: () => void
 }
 
-/**
- * 安装 interrupt 监听：有 turn → abort；无 turn → onIdleInterrupt。
- * 不在此调用 process.exit，由 onIdleInterrupt 决定如何结束。
- */
-export function installTurnInterrupt(
-  options: TurnInterruptOptions,
-): TurnInterruptHandle {
-  const target = options.target ?? process
-  const event = options.event ?? 'SIGINT'
+/** 纯状态机：供 Ink useInput 与 SIGINT 共用 */
+export function createTurnInterruptHandler(
+  options: Omit<TurnInterruptOptions, 'target' | 'event' | 'readline'>,
+): () => void {
   const now = options.now ?? Date.now
   const idleWindowMs = options.idleDoublePressWindowMs ?? 1000
   let abortedActiveTurn = false
   let lastIdleInterruptAt = 0
-  const handler = () => {
+  return () => {
     if (options.abortCurrentTurn()) {
       abortedActiveTurn = true
       lastIdleInterruptAt = 0
@@ -81,9 +79,22 @@ export function installTurnInterrupt(
     lastIdleInterruptAt = ts
     options.onIdleFirstInterrupt?.()
   }
+}
+
+/**
+ * 安装 interrupt 监听：有 turn → abort；无 turn → onIdleInterrupt。
+ * 不在此调用 process.exit，由 onIdleInterrupt 决定如何结束。
+ */
+export function installTurnInterrupt(
+  options: TurnInterruptOptions,
+): TurnInterruptHandle {
+  const target = options.target ?? process
+  const event = options.event ?? 'SIGINT'
+  const handler = createTurnInterruptHandler(options)
   target.on(event, handler)
   options.readline?.on('SIGINT', handler)
   return {
+    notify: handler,
     dispose: () => {
       target.off(event, handler)
       options.readline?.off('SIGINT', handler)

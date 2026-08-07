@@ -1,10 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { Box, Text, useApp, useInput } from '@anthropic/ink'
 import type { HostBridge } from '../../host/HostBridge.js'
 import type { HostBridgeSnapshot } from '../../host/types.js'
+import {
+  filterSlashSuggestions,
+  listSlashSuggestions,
+} from '../../host/slashSuggestions.js'
+import { isHostFeatureEnabled, stubNotice } from '../../host/stubs.js'
 import { Messages } from '../components/Messages.js'
 import { PromptInput } from '../components/PromptInput.js'
 import { StatusLine } from '../components/StatusLine.js'
+import { SlashSuggestList } from '../components/SlashSuggestList.js'
 import { PermissionDialog } from '../components/permissions/FallbackPermissionRequest.js'
 import {
   buildHelpText,
@@ -12,6 +18,7 @@ import {
   parseSlashCommand,
   formatMemoryStatus,
 } from '../../entrypoints/repl.js'
+import { createTurnInterruptHandler } from '../../entrypoints/turnInterrupt.js'
 import type { DiscoveredSkill } from '../../skills/discover.js'
 import type { McpSlashCommand } from '../../services/mcp/types.js'
 import {
@@ -42,33 +49,65 @@ export function REPL({
 }: REPLProps) {
   const { exit } = useApp()
   const [snap, setSnap] = useState<HostBridgeSnapshot>(() => bridge.snapshot())
+  const [draft, setDraft] = useState('')
+  const [suggestIndex, setSuggestIndex] = useState(0)
 
   useEffect(() => bridge.subscribe(setSnap), [bridge])
 
+  const allSuggestions = useMemo(
+    () => listSlashSuggestions(mcpCommands, skills),
+    [mcpCommands, skills],
+  )
+  const suggestions = useMemo(
+    () => filterSlashSuggestions(draft, allSuggestions),
+    [allSuggestions, draft],
+  )
+
+  const leave = useCallback(() => {
+    onExit?.()
+    exit()
+  }, [exit, onExit])
+
+  const onInterrupt = useMemo(
+    () =>
+      createTurnInterruptHandler({
+        abortCurrentTurn: () => bridge.abortTurn(),
+        isTurnInProgress: () => bridge.engine.isTurnInProgress,
+        onIdleFirstInterrupt: () => {
+          bridge.pushSystem('再按一次 Ctrl+C 退出')
+        },
+        onIdleInterrupt: leave,
+        onForceInterrupt: leave,
+      }),
+    [bridge, leave],
+  )
+
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
-      if (bridge.engine.isTurnInProgress) {
-        bridge.abortTurn()
-        return
-      }
-      // idle: exit (full three-phase interrupt lands in #118)
-      onExit?.()
-      exit()
+      onInterrupt()
     }
   })
 
   const handleSubmit = useCallback(
     async (raw: string) => {
       if (snap.permission) return
+      setDraft('')
+      setSuggestIndex(0)
 
       const trimmed = raw.trim()
       if (!trimmed) return
 
+      if (trimmed === '/plan' || trimmed.startsWith('/plan ')) {
+        if (!isHostFeatureEnabled('plan-mode')) {
+          bridge.pushSystem(stubNotice('plan-mode'))
+          return
+        }
+      }
+
       if (isSlashLine(trimmed)) {
         const slash = parseSlashCommand(trimmed)
         if (slash?.type === 'exit') {
-          onExit?.()
-          exit()
+          leave()
           return
         }
         if (slash?.type === 'clear') {
@@ -116,7 +155,6 @@ export function REPL({
           }
           return
         }
-        // Unknown / MCP / Skill slash: notice for now (#117 expands suggestions)
         if (!slash) {
           bridge.pushSystem(`未知命令: ${trimmed}`)
           return
@@ -126,7 +164,7 @@ export function REPL({
 
       await bridge.submitUserText(trimmed)
     },
-    [bridge, exit, mcpCommands, onExit, skills, snap.permission, summarizeForCompact],
+    [bridge, leave, mcpCommands, skills, snap.permission, summarizeForCompact],
   )
 
   return (
@@ -140,12 +178,22 @@ export function REPL({
           onAnswer={a => bridge.answerPermission(a)}
         />
       ) : (
-        <PromptInput
-          disabled={snap.turnInProgress}
-          onSubmit={v => {
-            void handleSubmit(v)
-          }}
-        />
+        <Box flexDirection="column">
+          <SlashSuggestList
+            suggestions={suggestions}
+            selectedIndex={suggestIndex}
+          />
+          <PromptInput
+            disabled={snap.turnInProgress}
+            onChange={setDraft}
+            onSubmit={v => {
+              if (suggestions.length > 0 && v.trim() === suggestions[suggestIndex]?.command.slice(0, v.trim().length)) {
+                // Tab-like: if user hits enter on partial match with selection, use selected
+              }
+              void handleSubmit(v)
+            }}
+          />
+        </Box>
       )}
     </Box>
   )

@@ -10,7 +10,9 @@
 | 可学习 | 核心循环 ~150 行，中文注释 |
 | 可扩展 | 模块边界与 claude-code 同构，换 Provider / 加工具不改 `query.ts` |
 
-**刻意不做**：Ink UI、权限弹窗（REPL 用 stdin y/n）、会话持久化、SSE/HTTP MCP、并发工具。
+**刻意不做（引擎层）**：会话持久化、SSE/HTTP MCP、并发工具。
+
+**UI**：v8 起交互 REPL 使用 vendored `@anthropic/ink` + `src/ui`（见 `docs/ui-upstream.md`）；headless/pipe 仍非 Ink。
 
 ## ReAct 主循环
 
@@ -196,7 +198,7 @@ Slash（仅 REPL）：`/help`、`/clear`、`/compact`、`/exit`（`/quit`）；�
 
 1. **规则化权限 / always-allow** — 在现有 `canUseTool` 钩子上扩展
 2. **compact** — 长对话截断
-3. **Ink REPL** — 替换 readline
+3. **Ink REPL** — ✅ v8：`@anthropic/ink` + `src/ui` + Host Bridge（见 `docs/ui-upstream.md`）
 4. **MCP / Agent 子任务** — 对齐 claude-code 工具注册表
 
 ## 测试策略
