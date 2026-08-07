@@ -43,6 +43,25 @@ describe('Skill end-to-end', () => {
         return
       }
 
+      // assistant(tool_use) 后须先有配对 tool_result，再是 Skill 正文
+      const afterAssistant = params.messages.slice(
+        params.messages.findIndex(
+          m =>
+            m.type === 'assistant' &&
+            m.content.some(
+              b => b.type === 'tool_use' && b.id === 'toolu_echo_demo',
+            ),
+        ) + 1,
+      )
+      expect(afterAssistant[0]?.content[0]?.type).toBe('tool_result')
+      expect(
+        afterAssistant.some(m =>
+          m.content.some(
+            b => b.type === 'text' && b.text.includes('Skill says:'),
+          ),
+        ),
+      ).toBe(true)
+
       yield { type: 'text_delta', text: 'Skill says: hello' }
       yield createAssistantMessage([
         { type: 'text', text: 'Skill says: hello' },

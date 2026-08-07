@@ -1,7 +1,7 @@
 /**
  * 工具编排：同一轮里多个 tool_use 按顺序串行执行
  *
- * 每个工具跑完就 yield 一条 tool_result（以及可选的 prependMessages，如 Skill 正文）。
+ * 每个工具跑完先 yield tool_result，再 yield 可选 prependMessages（如 Skill 正文）。
  * 权限 abort 后对剩余 tool_use 合成错误 tool_result，保持配对完整。
  */
 
@@ -55,12 +55,13 @@ export async function* runTools(
     }
 
     const update = await runToolUse(block, parentMessage, context)
-    // Skill 正文等须先于 tool_result，模型才能在「工具返回」前看到注入材料
+    // 必须先 yield tool_result：OpenAI 要求 assistant(tool_calls) 后紧跟 role:tool
+    // （对齐 claude-code：addToolResult 后再 push newMessages；Skill 正文跟在配对之后）
+    yield { message: update.message }
     if (update.prependMessages) {
       for (const message of update.prependMessages) {
         yield { message }
       }
     }
-    yield { message: update.message }
   }
 }

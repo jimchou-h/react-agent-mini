@@ -115,13 +115,44 @@ describe('messagesToOpenAI', () => {
       { role: 'tool', tool_call_id: 'toolu_1', content: 'ok' },
     ])
   })
+
+  test('Skill injection text after tool_result keeps role:tool next to tool_calls', () => {
+    // 对齐 OpenAI：assistant(tool_calls) 后必须紧跟 role:tool，Skill 正文只能在其后
+    const result = messagesToOpenAI([
+      createUserMessage('load skill'),
+      createAssistantMessage([
+        {
+          type: 'tool_use',
+          id: 'toolu_skill',
+          name: 'Skill',
+          input: { skill: 'skill-creator' },
+        },
+      ]),
+      createToolResultMessage('toolu_skill', 'Launching skill: skill-creator'),
+      createUserMessage('Skill content here'),
+    ])
+
+    expect(result[1]).toMatchObject({
+      role: 'assistant',
+      tool_calls: [{ id: 'toolu_skill' }],
+    })
+    expect(result[2]).toEqual({
+      role: 'tool',
+      tool_call_id: 'toolu_skill',
+      content: 'Launching skill: skill-creator',
+    })
+    expect(result[3]).toEqual({
+      role: 'user',
+      content: 'Skill content here',
+    })
+  })
 })
 
 describe('toolsToOpenAI', () => {
   test('includes all registered tool definitions with JSON schema', () => {
     const tools = toolsToOpenAI(getTools())
 
-    expect(tools).toHaveLength(9)
+    expect(tools).toHaveLength(11)
     const names = tools.map(t => t.function.name).sort()
     expect(names).toEqual([
       'Agent',
@@ -132,6 +163,8 @@ describe('toolsToOpenAI', () => {
       'Grep',
       'Read',
       'Skill',
+      'WebFetch',
+      'WebSearch',
       'Write',
     ])
 

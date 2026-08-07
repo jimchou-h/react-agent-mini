@@ -210,6 +210,49 @@ describe('runTools', () => {
     expect(spyCalls).toBe(1)
   })
 
+  test('Skill yields tool_result before injected skill body (OpenAI pairing)', async () => {
+    const { SkillTool } = await import('../../../tools/SkillTool.js')
+    const blocks: ToolUseBlock[] = [
+      {
+        type: 'tool_use',
+        id: 'toolu_skill_order',
+        name: 'Skill',
+        input: { skill: 'review' },
+      },
+    ]
+    const parent = createAssistantMessage(blocks)
+    const context = {
+      ...createMinimalToolContext([SkillTool]),
+      skills: [
+        {
+          name: 'review',
+          displayName: 'Review',
+          description: 'Review changes',
+          body: '# Review workflow',
+          path: '/tmp/review/SKILL.md',
+        },
+      ],
+    }
+
+    const updates = []
+    for await (const update of runTools(blocks, parent, context)) {
+      updates.push(update)
+    }
+
+    expect(updates).toHaveLength(2)
+    const first = updates[0]!.message!.content[0]
+    const second = updates[1]!.message!.content[0]
+    expect(first?.type).toBe('tool_result')
+    if (first?.type === 'tool_result') {
+      expect(first.tool_use_id).toBe('toolu_skill_order')
+      expect(first.content).toBe('Launching skill: review')
+    }
+    expect(second?.type).toBe('text')
+    if (second?.type === 'text') {
+      expect(second.text).toContain('# Review workflow')
+    }
+  })
+
   test('skipped tools do not run PreToolUse hooks', async () => {
     let hookRuns = 0
     const abortController = new AbortController()

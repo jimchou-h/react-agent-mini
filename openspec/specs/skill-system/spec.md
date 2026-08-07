@@ -3,9 +3,7 @@
 ## Purpose
 
 工作区 Skill 发现、解析与按需加载：扫描 `SKILL.md`、在 system prompt 中提供可用技能摘要，并通过只读 `Skill` 工具注入正文。
-
 ## Requirements
-
 ### Requirement: 技能发现
 
 系统 SHALL 扫描工作区下 `.agents/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`，解析为可调用技能列表。技能的**调用 ID** SHALL 为包含 `SKILL.md` 的目录名；frontmatter 中的 `name` 仅作展示名（displayName），不作为 `Skill` 工具入参。
@@ -65,3 +63,18 @@ Skill 的 REPL slash 路径段 SHALL 使用与 `Skill` 工具相同的调用 ID�
 
 - **WHEN** 工作区包含示例 `skill-creator`
 - **THEN** 技能发现列表含 `skill-creator`，且 `/help` 可列出 `/skill-creator`
+
+### Requirement: Skill 注入消息在 tool_result 之后
+
+当 `Skill` 工具成功加载技能时，系统 SHALL 先将对应 `tool_use` 的 `tool_result`（短确认文案）追加到会话，再追加技能正文注入消息。系统 SHALL NOT 在含该 `tool_use` 的 assistant 消息与其配对 `tool_result` 之间插入纯文本 user 消息。
+
+#### Scenario: 成功加载后历史顺序
+
+- **WHEN** 模型调用 `Skill` 且技能存在
+- **THEN** 会话中该 `tool_use` 之后的下一条相关消息含配对 `tool_result`，技能正文注入消息出现在该 `tool_result` 之后
+
+#### Scenario: 未知技能不注入正文
+
+- **WHEN** 模型调用 `Skill` 且技能不存在
+- **THEN** 仅有错误 `tool_result`，不追加技能正文注入消息
+

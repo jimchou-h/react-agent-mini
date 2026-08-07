@@ -23,7 +23,7 @@ import type { HooksConfig } from '../hooks/types.js'
 export type ToolExecutionUpdate = {
   /** 包装为 user 角色的 tool_result 消息，待 yield 给 query 循环 */
   message: UserMessage
-  /** 在 tool_result 之前注入的 user 消息（如 Skill 正文） */
+  /** Skill 正文等；由 orchestration 在 tool_result 之后 yield */
   prependMessages?: UserMessage[]
 }
 

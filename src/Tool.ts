@@ -90,7 +90,10 @@ export type ToolResult<T = unknown> = {
   data: T
   /** 为 true 时 runToolUse 将 tool_result 标为 is_error（如 MCP isError） */
   isError?: boolean
-  /** 在 tool_result 之前注入会话的附加上下文（如 Skill 正文） */
+  /**
+   * 附加会话消息（如 Skill 正文）。编排层在 tool_result **之后**追加，
+   * 以保证 OpenAI tool_calls 配对；字段名保留 prepend 以对齐历史 API。
+   */
   prependMessages?: UserMessage[]
 }
 

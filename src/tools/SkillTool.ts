@@ -1,7 +1,8 @@
 /**
  * Skill 工具：按目录名加载已发现的 SKILL.md
  *
- * tool_result 只回短确认；正文通过 prependMessages 注入本轮（再被 query 送给模型）。
+ * tool_result 只回短确认；正文经 prependMessages 在 tool_result **之后**注入本轮
+ * （保证 OpenAI tool_calls 配对；再被 query 送给模型）。
  * 入参 `skill` 必须是目录名（调用 ID），不是 frontmatter displayName。
  */
 
