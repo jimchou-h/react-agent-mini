@@ -19,7 +19,7 @@
 #### Scenario: REPL 模式
 
 - **WHEN** 用户执行 `bun run dev` 且未提供问题参数、未使用 `-p`
-- **THEN** CLI 进入交互 REPL 而非打印用法并退出
+- **THEN** CLI 进入 **Ink** 交互 REPL 而非打印用法并退出
 
 ### Requirement: 环境检查
 
