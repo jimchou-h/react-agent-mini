@@ -3,9 +3,7 @@
 ## Purpose
 
 可注入的 `canUseTool` 权限决策：未注入时默认 auto-allow；REPL 对写操作交互确认；headless/pipe 默认拒绝写操作（可用 `ALLOW_WRITE=1` 放行）。
-
 ## Requirements
-
 ### Requirement: 可注入 canUseTool
 
 系统 SHALL 通过 `ToolUseContext`（或等价注入点）支持自定义 `canUseTool`；未提供时默认 auto-allow。
@@ -71,3 +69,13 @@
 
 - **WHEN** REPL 对 `Bash` 请求确认
 - **THEN** 提示文案包含命令的可读预览（过长可截断）
+
+### Requirement: 规则层接入 canUseTool
+
+权限回调 SHALL 在询问用户前检查会话规则；headless 默认策略不变，除非规则或既有 env 放行。
+
+#### Scenario: headless 无规则仍 deny 写
+
+- **WHEN** headless 调用 Write 且无放行规则/env
+- **THEN** deny
+

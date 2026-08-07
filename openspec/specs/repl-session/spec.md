@@ -122,3 +122,12 @@ REPL SHALL 与 headless 模式使用相同的流式输出约定（text → stdou
 - **WHEN** 输入行为 `/init` 或 `/init` 加参数
 - **THEN** 解析为 init 命令而非未知 slash
 
+### Requirement: 上下文状态可查询
+
+REPL SHALL 提供查看当前上下文占用的途径（现有 ctx 行、`/status` 或等价）。
+
+#### Scenario: 用户可看到占用
+
+- **WHEN** 完成一轮对话或查询状态
+- **THEN** 用户能获知当前 context 占用估计
+

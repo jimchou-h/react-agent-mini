@@ -3,9 +3,7 @@
 ## Purpose
 
 MCP Prompts Host 能力：list/get 提示模板，经 REPL slash 注入当前 turn（对齐 claude-code，不经 SkillTool）。
-
 ## Requirements
-
 ### Requirement: MCP Prompts 列表与获取
 
 系统 SHALL 能对声明 `prompts` 能力的 MCP server 执行 `prompts/list` 与 `prompts/get`。list 失败或无能力时 SHALL fail-soft 返回空列表。
@@ -89,3 +87,18 @@ MCP Prompts Host 能力：list/get 提示模板，经 REPL slash 注入当前 tu
 
 - **WHEN** 模型查看可用 Skill 或调用 Skill
 - **THEN** 列表中不出现 MCP prompt 名称
+
+### Requirement: MCP 发现与错误可读
+
+REPL SHALL 以可读方式展示可用 MCP prompt（及必要时 resource 提示）。MCP 调用失败时 SHALL 打印稳定可读错误，不静默吞掉。
+
+#### Scenario: help 含 MCP prompts
+
+- **WHEN** 已连接含 prompts 的 server 且用户 `/help`
+- **THEN** 输出包含可调用的 MCP prompt 列表信息
+
+#### Scenario: prompt 失败可读
+
+- **WHEN** MCP prompt 调用失败
+- **THEN** 用户看到非空错误说明，会话可继续
+

@@ -6,27 +6,12 @@
 ## Requirements
 ### Requirement: 运行中 interrupt 中止当前 turn
 
-当 REPL（或等价交互入口）存在进行中的 Agent turn 时，用户第一次 interrupt（SIGINT / Ctrl+C 或入口暴露的等价 abort API）SHALL 触发当前轮 `AbortController.abort`，SHALL NOT 因此立即退出进程。本轮结束后会话 SHALL 仍可接受后续输入。
+当 REPL 存在进行中 turn 时，第一次 interrupt SHALL abort 当前轮且不立即退出；结束后可继续输入。空闲行为以本文件「三段 interrupt」要求为准（不再要求空闲第一次即退出）。
 
 #### Scenario: turn 进行中第一次 Ctrl+C
 
-- **WHEN** REPL 正在执行一轮 `runTurn` / `query`，用户触发第一次 interrupt
-- **THEN** 当前轮的 `abortController` 进入 aborted，本轮以中止结束，进程仍存活且可继续提示输入
-
-#### Scenario: 无进行中 turn 时第一次 Ctrl+C 不退出
-
-- **WHEN** REPL 空闲（无进行中 turn），用户第一次触发 interrupt
-- **THEN** 进程 SHALL NOT 立即退出，且 SHALL NOT 误 abort 下一轮尚未开始的 turn
-
-#### Scenario: 空闲窗口内第二次 Ctrl+C 退出
-
-- **WHEN** REPL 空闲，且用户在入口定义的短时间窗口内第二次触发 interrupt
-- **THEN** 进程按入口约定退出（或等价结束 REPL）
-
-#### Scenario: turn 收尾中第二次 Ctrl+C 强退
-
-- **WHEN** 第一次 interrupt 已使当前 turn 进入 aborted，但 REPL 仍在收尾，用户再次触发 interrupt
-- **THEN** 入口 SHALL 直接结束 REPL（或等价强制退出），而非继续等待本轮自然收尾
+- **WHEN** 正在 `runTurn`，用户第一次 interrupt
+- **THEN** 当前 abortController aborted，本轮中止，进程仍可回到提示符
 
 ### Requirement: 程序化 abort 与 interrupt 等价
 
@@ -36,4 +21,22 @@
 
 - **WHEN** 测试或宿主在 `runTurn` 期间调用当前轮 abort
 - **THEN** 行为与用户 interrupt 一致：本轮中止，会话历史仍可用于后续 turn
+
+### Requirement: idle / running / cleanup 三段 interrupt
+
+系统 SHALL 区分空闲、运行中、首次 abort 后的收尾态：
+
+- 空闲：第一次 interrupt 不退出；短窗口内第二次退出
+- 运行中：第一次 interrupt abort 当前 turn，会话可继续
+- 收尾中：第二次 interrupt 允许强制退出
+
+#### Scenario: idle 双击退出
+
+- **WHEN** 无进行中 turn，用户在窗口内连续两次 interrupt
+- **THEN** 第二次触发退出 REPL
+
+#### Scenario: cleanup 强退
+
+- **WHEN** 已 abort 当前 turn 但仍在收尾，用户再次 interrupt
+- **THEN** 强制结束进程或等价退出，不无限等待
 

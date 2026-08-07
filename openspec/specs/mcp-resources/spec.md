@@ -3,9 +3,7 @@
 ## Purpose
 
 MCP Resources Host 能力：list/read 资源，并通过 `ListMcpResourcesTool` / `ReadMcpResourceTool` 暴露给模型（对齐 claude-code）。
-
 ## Requirements
-
 ### Requirement: Host 解析 @server:uri 并精确读取
 
 系统 SHALL 能从文本中解析 MCP 资源引用，形态为 `@<server>:<uri>`（`server` 与 `uri` 以第一个 `:` 分隔；`uri` 可含 `://`）。对每个去重后的引用，Host SHALL 在对应已连接且声明 `resources` 的 server 上执行 `resources/read`，并将文本正文格式化为可注入的 meta 用户消息（含 server / uri / 可选 name）。单条正文超限时 SHALL 截断（与既有 Resource 注入上限同量级）。系统 SHALL NOT 在缺少 `@server:uri` 时对该 server 执行全量 Resources 挂载。该解析 SHALL 适用于 MCP prompt 注入文本与普通用户输入文本。
@@ -105,3 +103,13 @@ MCP Resources Host 能力：list/read 资源，并通过 `ListMcpResourcesTool` 
 
 - **WHEN** 所有 server 均未声明 `resources`
 - **THEN** 会话工具列表不含上述两工具，行为与 v3 一致
+
+### Requirement: MCP 资源失败可读
+
+Resource 解析/读取失败时，系统 SHALL 给出可读警告或错误，SHALL NOT 在无说明时继续假装成功。
+
+#### Scenario: resource 挂载失败有提示
+
+- **WHEN** `@server:uri` 无法读取
+- **THEN** 打印可读失败信息
+

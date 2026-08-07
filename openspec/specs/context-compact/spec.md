@@ -3,9 +3,7 @@
 ## Purpose
 
 Context Budget：在每轮调用模型前对出站消息做确定性裁剪（tool_result 截断、microcompact、保尾），并在达到阈值时可选 LLM autocompact 摘要写回会话；REPL 可观测上下文占用百分比。
-
 ## Requirements
-
 ### Requirement: 出站消息裁剪
 
 系统 SHALL 在调用模型前对将发送的消息列表应用 compact 策略（可配置关闭）。确定性层（tool_result 截断、microcompact、保尾）默认仍为出站-only；LLM autocompact 成功时 SHALL 写回会话内存（见 autocompact 要求）。
@@ -110,3 +108,18 @@ Context Budget：在每轮调用模型前对出站消息做确定性裁剪（too
 
 - **WHEN** `TRACE=1` 且发生了实质裁剪
 - **THEN** stderr 出现 `[trace] compact.run` 及前后规模信息
+
+### Requirement: 压缩结果可观测
+
+当发生实质 compact 或 autocompact 时，系统 SHALL 向用户或 TRACE 提供可理解的前后占用/摘要反馈。无实质变化时可不刷屏。
+
+#### Scenario: 手动 compact 打印前后
+
+- **WHEN** 用户执行 `/compact` 且成功
+- **THEN** 输出包含压缩前后占用信息
+
+#### Scenario: 无变化不噪声
+
+- **WHEN** compact 未改变消息
+- **THEN** 不输出误导性「已大幅压缩」类文案
+
